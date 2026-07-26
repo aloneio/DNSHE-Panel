@@ -14,6 +14,8 @@ describe('DNSHE V2 client', () => {
   it('preserves upstream 429 details and rejects body-level and invalid JSON failures', async () => {
     const limited = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false, error_code: 'RATE_LIMITED', message: 'Slow down', details: { remaining: 0 } }), { status: 429 })));
     await expect(limited.getQuota()).rejects.toMatchObject({ status: 429, errorCode: 'RATE_LIMITED', details: { remaining: 0 } } satisfies Partial<DNSHEApiError>);
+    const network = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockRejectedValue(new Error('connection reset')));
+    await expect(network.getQuota()).rejects.toMatchObject({ status: 502, errorCode: 'UPSTREAM_NETWORK_ERROR', details: { reason: 'connection reset' } });
     const bodyFailure = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false, error_code: 'provider_operation_failed', message: 'Provider rejected the request' }), { status: 200 })));
     await expect(bodyFailure.getQuota()).rejects.toMatchObject({ status: 502, errorCode: 'provider_operation_failed' });
     const invalid = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockResolvedValue(new Response('not-json', { status: 200 })));

@@ -31,7 +31,10 @@ export class DNSHESubdomainAPI {
     }
     let response: Response;
     try { response = await this.fetcher(url.toString(), init); }
-    catch { throw new DNSHEApiError('DNSHE service is unavailable', 502, endpoint, action, 'UPSTREAM_NETWORK_ERROR'); }
+    catch (cause) {
+      const reason = cause instanceof Error && cause.message ? cause.message : 'Unknown network failure';
+      throw new DNSHEApiError('DNSHE service is unavailable', 502, endpoint, action, 'UPSTREAM_NETWORK_ERROR', { reason });
+    }
     const raw = await response.text();
     let body: Record<string, any>;
     try { body = raw ? JSON.parse(raw) as Record<string, any> : {}; }
