@@ -36,6 +36,10 @@ export async function apiFetch(path, options = {}) {
     throw new ApiError('Server returned an invalid response', { status: response.status });
   }
   if (!response.ok || payload.success !== true) {
+    if (method === 'GET' && response.status === 502 && payload.error_code === 'UPSTREAM_NETWORK_ERROR' && !options.__dnsheRetried) {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 700));
+      return apiFetch(path, { ...options, __dnsheRetried: true });
+    }
     const error = new ApiError(payload.message || 'Request failed', { status: response.status, errorCode: payload.error_code, details: payload.details, requestId: payload.requestId, upstream: payload.upstream });
     if (response.status === 401) window.dispatchEvent(new CustomEvent('dnshe:unauthorized'));
     throw error;

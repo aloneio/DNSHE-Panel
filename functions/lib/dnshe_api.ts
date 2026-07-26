@@ -52,7 +52,7 @@ export class DNSHESubdomainAPI {
     const headers = new Headers({ 'Accept': 'application/json', 'User-Agent': 'DNSHE-Panel/1.0' });
     if (this.apiKey) headers.set('X-API-Key', this.apiKey);
     if (this.apiSecret) headers.set('X-API-Secret', this.apiSecret);
-    const init: RequestInit = { method, headers };
+    const init: RequestInit = { method, headers, redirect: 'follow' };
     if (method !== 'GET' && data) {
       headers.set('Content-Type', 'application/json');
       init.body = JSON.stringify(Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)));
