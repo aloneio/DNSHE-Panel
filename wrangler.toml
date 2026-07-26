@@ -1,3 +1,7 @@
 name = "dns-panel"
 compatibility_date = "2024-11-01"
 pages_build_output_dir = "public"
+
+[[kv_namespaces]]
+binding = "ACCOUNTS_KV"
+id = "7f678774ad41474bb1e54bb9fb1ff443"

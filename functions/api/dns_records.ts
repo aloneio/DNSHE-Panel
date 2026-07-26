@@ -13,7 +13,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
     const request = context.request;
     if (request.method === 'GET') {
       const url = new URL(request.url);
-      const account = getAccount(context.env, url.searchParams.get('accountIndex'));
+      const account = await getAccount(context.env, url.searchParams.get('accountIndex'));
       const subdomainId = positiveId(url.searchParams.get('subdomain_id'), 'subdomain_id');
       const page = pagination(url.searchParams, { defaultPerPage: 100, maxPerPage: 500 });
       const response = await (await import('../lib/dnshe_api.ts')).dnsheClient(account.key, account.secret).listDnsRecords(subdomainId, { page: page.page, per_page: page.per_page, ...(page.include_total ? { include_total: 1 } : {}) });
@@ -23,7 +23,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
     }
     if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
       const body = await parseJsonBody<Record<string, unknown>>(request);
-      const account = getAccount(context.env, body.accountIndex);
+      const account = await getAccount(context.env, body.accountIndex);
       const { dnsheClient } = await import('../lib/dnshe_api.ts');
       const api = dnsheClient(account.key, account.secret);
       if (request.method === 'POST' && body.subdomain_id !== undefined) return jsonOk(requestId, await api.createDnsRecord(positiveId(body.subdomain_id, 'subdomain_id'), dnsRecord(body)));

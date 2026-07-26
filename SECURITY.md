@@ -6,7 +6,7 @@ Only the current `main` source tree is supported. Deploy the latest validated ve
 
 ## Security properties
 
-- DNSHE credentials, panel passwords, and session-signing secrets remain server-side Cloudflare secrets.
+- DNSHE credentials added from the panel are encrypted with an AES-GCM key held in a Cloudflare Pages secret before being written to the bound KV namespace; list and mutation responses never return them. Optional bootstrap credential pairs remain Pages secrets.
 - The browser receives only signed HttpOnly session cookies and a per-session CSRF value held in module memory.
 - Mutating API calls require a same-session CSRF token. The Pages middleware applies CSP and standard anti-framing/content-sniffing headers.
 - Debug logging is disabled unless `DEBUG=true`; the logger redacts credentials, cookies, DNS content, and infrastructure IDs.
@@ -18,4 +18,4 @@ Do not open public issues containing credentials, DNS records, API keys, or expl
 
 ## Operational guidance
 
-Use unique long panel passwords and an independently generated session secret (32+ characters). Restrict DNSHE API keys by IP where appropriate. Use a non-production DNSHE account to test record mutations and permanent upgrades. API secrets produced by create/regenerate are one-time values; store them in an approved secret manager immediately.
+Use unique long panel passwords and independently generated session and account-encryption secrets (32+ characters / 32 random bytes respectively). Restrict DNSHE API keys by IP where appropriate. Use a non-production DNSHE account to test record mutations and permanent upgrades. API secrets produced by create/regenerate are one-time values; store them in an approved secret manager immediately.

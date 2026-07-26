@@ -8,7 +8,7 @@ A security-focused, multi-account DNSHE API V2.0 administration panel built with
 
 - Signed `HttpOnly; Secure; SameSite=Strict` session cookies with per-session CSRF tokens.
 - Global Pages middleware with a restrictive CSP, security headers, API authentication, and CSRF enforcement.
-- Explicit multi-account selection from configured `DNSHE_KEY_<index>` / `DNSHE_SECRET_<index>` pairs. Aliases are display-only and never used as identifiers.
+- Explicit multi-account selection from panel-managed encrypted KV accounts or optional bootstrap `DNSHE_KEY_<index>` / `DNSHE_SECRET_<index>` secret pairs. Aliases are display-only and never used as identifiers.
 - Complete DNSHE V2 subdomain coverage: list with every documented filter/sort/field/pagination option, register, detail, delete, and renew.
 - Complete DNS record management for A/AAAA/CNAME/MX/TXT/NS/SRV/CAA, including provider/internal IDs, resolution line, structured SRV/CAA fields, method variants, and record pagination.
 - API key list/create/regenerate/delete, structured quota metrics, WHOIS public-first inspection with authenticated fallback, and permanent-upgrade requests/eligibility/assist logs.
@@ -23,6 +23,14 @@ Copy `.env.example` to `.dev.vars` for local development, or set these values as
 DNS_PANEL_PASSWORD='long unique panel password'
 DNS_PANEL_SESSION_SECRET='at least 32 random characters; use a generated secret'
 DNS_PANEL_SESSION_MAX_AGE_SECONDS='28800'
+ACCOUNT_ENCRYPTION_KEY='base64-encoded 32-byte value from: openssl rand -base64 32'
+```
+
+The deployment binds a dedicated production KV namespace as `ACCOUNTS_KV`. Add DNSHE accounts from **Keys, quota & tools → DNSHE accounts**. Credentials are encrypted with `ACCOUNT_ENCRYPTION_KEY` before writing to KV and are never returned to the browser after saving. Use a separate Cloudflare Pages project for preview testing if its credentials must be isolated from production.
+
+Optional bootstrap credentials can remain as Pages secrets:
+
+```sh
 DNSHE_KEY_1='DNSHE key'
 DNSHE_SECRET_1='DNSHE secret'
 DNSHE_ALIAS_1='Primary account'

@@ -1,5 +1,5 @@
 import { apiFetch, errorMessage, withLoading } from './api.js';
-import { loadAccounts, selectedAccount } from './accounts.js';
+import { loadAccounts, selectedAccount, createManagedAccount, deleteManagedAccount, updateManagedAccount } from './accounts.js';
 import { refreshSession, installAuthentication } from './auth.js';
 import { button, clear, el, textCell } from './dom.js';
 import { bindDialogClose, closeDialog, confirmAction, openDialog } from './dialog.js';
@@ -7,6 +7,70 @@ import { clearStatus, showStatus, toast } from './status.js';
 import { initializeI18n, t } from './i18n.js';
 
 const upgrades = { page: 1, perPage: 50, hasMore: false };
+let activeAccounts = [];
+
+function renderAccounts(accounts) {
+  const body = document.querySelector('#accounts-body'); clear(body);
+  if (!accounts.length) return body.append(el('tr', {}, [el('td', { colSpan: 3, className: 'empty-cell', text: t('No configured accounts.') })]));
+  for (const account of accounts) {
+    const actions = el('td', { className: 'actions', 'data-label': t('Actions') });
+    if (account.managed) {
+      actions.append(button(t('Edit'), { className: 'btn btn--quiet', 'data-action': 'edit-account', 'data-index': account.accountIndex }));
+      actions.append(button(t('Delete'), { className: 'btn btn--danger', 'data-action': 'delete-account', 'data-index': account.accountIndex }));
+    } else actions.append(el('span', { className: 'quiet-note', text: t('Environment configured') }));
+    body.append(el('tr', {}, [textCell(account.alias, '', t('Account')), textCell(account.accountIndex, 'mono', t('ID')), actions]));
+  }
+}
+
+async function reloadAccounts() {
+  const selector = document.querySelector('#tools-account');
+  const current = selector.value;
+  activeAccounts = await loadAccounts(selector);
+  if (activeAccounts.some((account) => account.accountIndex === current)) selector.value = current;
+  renderAccounts(activeAccounts);
+  return activeAccounts;
+}
+
+function setAccountFormMode(form, account) {
+  form.reset(); clearStatus(form.querySelector('.form-status'));
+  const editing = Boolean(account);
+  form.elements.mode.value = editing ? 'edit' : 'create';
+  form.elements.accountIndex.readOnly = editing;
+  form.elements.accountIndex.required = !editing;
+  form.elements.key.required = !editing;
+  form.elements.secret.required = !editing;
+  document.querySelector('#account-title').textContent = t(editing ? 'Edit DNSHE account' : 'Add DNSHE account');
+  document.querySelector('#account-help').textContent = t(editing ? (account.managed ? 'Leave Key and Secret empty to keep the current credentials.' : 'This account is configured through the environment and cannot be edited in the panel.') : 'Credentials are encrypted at rest and are never shown again.');
+  if (editing) { form.elements.accountIndex.value = account.accountIndex; form.elements.alias.value = account.alias; }
+}
+
+function installAccountManager() {
+  const dialog = document.querySelector('#account-dialog');
+  const form = document.querySelector('#account-form');
+  bindDialogClose(dialog);
+  document.querySelector('#new-account').addEventListener('click', (event) => { setAccountFormMode(form); openDialog(dialog, event.currentTarget); });
+  document.querySelector('#accounts-body').addEventListener('click', async (event) => {
+    const target = event.target.closest('button[data-action]');
+    if (!target) return;
+    const account = activeAccounts.find((item) => item.accountIndex === target.dataset.index);
+    if (!account) return;
+    if (target.dataset.action === 'edit-account') { setAccountFormMode(form, account); openDialog(dialog, target); return; }
+    if (!await confirmAction({ title: t('Delete DNSHE account'), message: t('Delete account {accountIndex}? Domains and DNS records at DNSHE will not be changed.', { accountIndex: account.accountIndex }), confirmLabel: t('Delete account') })) return;
+    try { await withLoading(target, () => deleteManagedAccount(account.accountIndex)); await reloadAccounts(); await loadAll(); toast(t('Account deleted.'), 'success'); }
+    catch (error) { toast(errorMessage(error), 'error'); }
+  });
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const values = Object.fromEntries(new FormData(form).entries());
+    const editing = values.mode === 'edit'; delete values.mode;
+    if (editing) { if (!values.key) delete values.key; if (!values.secret) delete values.secret; }
+    try {
+      if (editing) await withLoading(form.querySelector('[type="submit"]'), () => updateManagedAccount(values));
+      else await withLoading(form.querySelector('[type="submit"]'), () => createManagedAccount(values));
+      closeDialog(dialog); await reloadAccounts(); await loadAll(); toast(t(editing ? 'Account updated.' : 'Account added.'), 'success');
+    } catch (error) { showStatus(form.querySelector('.form-status'), errorMessage(error), 'error'); }
+  });
+}
 
 function labeledCell(label, children) { return el('td', { 'data-label': label }, Array.isArray(children) ? children : [children]); }
 function showResult(title, summary, data, trigger) { document.querySelector('#result-title').textContent = title; document.querySelector('#result-summary').textContent = summary; document.querySelector('#result-value').textContent = JSON.stringify(data, null, 2); openDialog(document.querySelector('#result-dialog'), trigger); }
@@ -83,6 +147,7 @@ function renderWhois(value) {
 let toolsInstalled = false;
 function installTools() {
   if (toolsInstalled) return; toolsInstalled = true; const selector = document.querySelector('#tools-account');
+  installAccountManager();
   selector.addEventListener('change', async () => { upgrades.page = 1; await Promise.all([loadKeys(), loadQuota(), loadUpgrades()]); });
   document.querySelector('#refresh-keys').addEventListener('click', (event) => withLoading(event.currentTarget, () => Promise.all([loadKeys(), loadQuota(), loadUpgrades()])));
   document.querySelector('#key-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; try { const values = Object.fromEntries(new FormData(form).entries()); values.action = 'create'; values.accountIndex = selectedAccount(selector); const result = await withLoading(form.querySelector('[type="submit"]'), () => apiFetch('/api/keys', { method: 'POST', body: JSON.stringify(values) })); closeDialog(document.querySelector('#key-dialog')); showSecret(result.data, document.querySelector('#new-key')); toast(result.data.warning || t('API key created. Store its secret now.'), 'success'); await loadKeys(); } catch (error) { showStatus(form.querySelector('.form-status'), errorMessage(error), 'error'); } });
@@ -96,10 +161,14 @@ function installTools() {
   document.querySelector('#assist-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const values = Object.fromEntries(new FormData(form).entries()); if (!await confirmAction({ title: t('Submit assist code'), message: t('Submit this assist code for the selected account?'), confirmLabel: t('Submit code') })) return; try { const result = await withLoading(form.querySelector('[type="submit"]'), () => apiFetch('/api/permanent_upgrade', { method: 'POST', body: JSON.stringify({ action: 'assist', accountIndex: selectedAccount(selector), assist_code: values.assist_code }) })); closeDialog(document.querySelector('#assist-dialog')); showResult(t('Assist code submitted'), result.data.message || t('Assist operation completed.'), result.data, document.querySelector('#open-assist')); await loadUpgrades(); } catch (error) { showStatus(form.querySelector('.form-status'), errorMessage(error), 'error'); } });
   document.querySelector('#upgrade-previous').addEventListener('click', () => { if (upgrades.page > 1) { upgrades.page -= 1; loadUpgrades(); } }); document.querySelector('#upgrade-next').addEventListener('click', () => { if (upgrades.hasMore) { upgrades.page += 1; loadUpgrades(); } });
   document.querySelector('#copy-secret').addEventListener('click', async () => { try { await navigator.clipboard.writeText(document.querySelector('#secret-value').textContent); toast(t('Secret copied.'), 'success'); } catch { toast(t('Copy is unavailable. Select and copy the displayed value.'), 'warning'); } });
-  const secretDialog = document.querySelector('#secret-dialog'); secretDialog.addEventListener('close', clearSecret); ['key-dialog', 'secret-dialog', 'assist-dialog', 'result-dialog'].forEach((id) => bindDialogClose(document.querySelector(`#${id}`)));
+  const secretDialog = document.querySelector('#secret-dialog'); secretDialog.addEventListener('close', clearSecret); ['account-dialog', 'key-dialog', 'secret-dialog', 'assist-dialog', 'result-dialog'].forEach((id) => bindDialogClose(document.querySelector(`#${id}`)));
 }
 
-async function initialize() { await loadAccounts(document.querySelector('#tools-account')); installTools(); upgrades.page = 1; renderUpgradePagination(); await Promise.all([loadKeys(), loadQuota(), loadUpgrades()]); }
+async function loadAll() {
+  if (!selectedAccount(document.querySelector('#tools-account'))) return;
+  await Promise.all([loadKeys(), loadQuota(), loadUpgrades()]);
+}
+async function initialize() { const accounts = await reloadAccounts(); installTools(); upgrades.page = 1; renderUpgradePagination(); if (accounts.length) await loadAll(); }
 async function initializeSafely() { try { await initialize(); } catch (error) { showStatus(document.querySelector('#tools-status'), t('Signed in, but the tools page could not initialize: {message}', { message: errorMessage(error) }), 'error'); toast(errorMessage(error), 'error'); } }
 initializeI18n();
 const auth = installAuthentication({ onAuthenticated: initializeSafely });

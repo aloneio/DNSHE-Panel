@@ -11,4 +11,18 @@ export async function loadAccounts(selector, { allowAll = false } = {}) {
   return accounts;
 }
 
+export async function createManagedAccount(values) {
+  const response = await apiFetch('/api/accounts', { method: 'POST', body: JSON.stringify(values) });
+  return response.data.account;
+}
+
+export async function updateManagedAccount(values) {
+  const response = await apiFetch('/api/accounts', { method: 'PATCH', body: JSON.stringify(values) });
+  return response.data.account;
+}
+
+export async function deleteManagedAccount(accountIndex) {
+  await apiFetch('/api/accounts', { method: 'DELETE', body: JSON.stringify({ accountIndex }) });
+}
+
 export function selectedAccount(selector) { return selector?.value || ''; }

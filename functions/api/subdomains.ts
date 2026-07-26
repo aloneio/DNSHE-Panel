@@ -35,7 +35,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
       const subdomainId = url.searchParams.get('subdomain_id');
       if (subdomainId !== null) {
         if (accountIndex === 'all') throw new ValidationError('Select one account to load subdomain details');
-        const account = getAccount(context.env, accountIndex);
+        const account = await getAccount(context.env, accountIndex);
         const response = await dnsheClient(account.key, account.secret).getSubdomain(positiveId(subdomainId, 'subdomain_id'));
         const detail = response.subdomain || response.data?.subdomain || response.data || response;
         const records = Array.isArray(response.dns_records) ? response.dns_records : Array.isArray(response.data?.dns_records) ? response.data.dns_records : [];
@@ -66,7 +66,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
         ...(sortDir ? { sort_dir: sortDir } : {}),
         ...(fields ? { fields } : {})
       };
-      const accounts = accountIndex === 'all' ? listAccounts(context.env) : [getAccount(context.env, accountIndex)];
+      const accounts = accountIndex === 'all' ? await listAccounts(context.env) : [await getAccount(context.env, accountIndex)];
       const subdomains: any[] = [];
       const byAccount: Record<string, ReturnType<typeof paginationMeta> & { count?: number }> = {};
       const partialErrors: Array<{ accountIndex: string; accountAlias: string; status: number; error_code?: string; message: string; details?: unknown }> = [];
@@ -88,7 +88,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
     if (request.method === 'POST' || request.method === 'PUT') {
       const body = await parseJsonBody<Record<string, unknown>>(request);
       const action = requiredString(body.action, 'action', 16);
-      const account = getAccount(context.env, body.accountIndex);
+      const account = await getAccount(context.env, body.accountIndex);
       const api = dnsheClient(account.key, account.secret);
       if (action === 'register' && request.method === 'POST') return jsonOk(requestId, await api.registerSubdomain(subdomain(body.subdomain), domain(body.rootdomain, 'rootdomain')));
       if (action === 'renew') return jsonOk(requestId, await api.renewSubdomain(positiveId(body.subdomain_id, 'subdomain_id')));
@@ -97,7 +97,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
     }
     if (request.method === 'DELETE') {
       const body = await parseJsonBody<Record<string, unknown>>(request);
-      const account = getAccount(context.env, body.accountIndex);
+      const account = await getAccount(context.env, body.accountIndex);
       return jsonOk(requestId, await dnsheClient(account.key, account.secret).deleteSubdomain(positiveId(body.subdomain_id, 'subdomain_id')));
     }
     return methodNotAllowed(requestId, ['GET', 'POST', 'PUT', 'DELETE']);

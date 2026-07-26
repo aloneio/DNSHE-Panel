@@ -19,7 +19,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
     let response: Record<string, any>;
     let authMode: 'public' | 'authenticated' = 'public';
     if (mode === 'authenticated') {
-      const account = getAccount(context.env, accountIndex);
+      const account = await getAccount(context.env, accountIndex);
       response = await dnsheClient(account.key, account.secret).whois(name);
       authMode = 'authenticated';
     } else {
@@ -27,7 +27,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
         response = await publicDnsheClient().whois(name);
       } catch (error) {
         if (!accountIndex || !canRetryWithCredentials(error)) throw error;
-        const account = getAccount(context.env, accountIndex);
+        const account = await getAccount(context.env, accountIndex);
         response = await dnsheClient(account.key, account.secret).whois(name);
         authMode = 'authenticated';
       }

@@ -10,7 +10,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
   return secured(context, async (id) => {
     if (context.request.method === 'GET') {
       const url = new URL(context.request.url);
-      const account = getAccount(context.env, url.searchParams.get('accountIndex'));
+      const account = await getAccount(context.env, url.searchParams.get('accountIndex'));
       const page = pagination(url.searchParams, { defaultPerPage: 50, maxPerPage: 50 });
       const response = await dnsheClient(account.key, account.secret).listPermanentUpgrade({ page: page.page, per_page: page.per_page });
       const state = response.state || response.data?.state || {};
@@ -22,7 +22,7 @@ export async function onRequest(context: FunctionContext): Promise<Response> {
     }
     if (context.request.method === 'POST' || context.request.method === 'PUT' || context.request.method === 'DELETE') {
       const body = await parseJsonBody<Record<string, unknown>>(context.request);
-      const account = getAccount(context.env, body.accountIndex);
+      const account = await getAccount(context.env, body.accountIndex);
       const action = context.request.method === 'DELETE' ? 'cancel' : requiredString(body.action, 'action', 16);
       const api = dnsheClient(account.key, account.secret);
       if (action === 'create') return jsonOk(id, await api.createPermanentUpgrade(positiveId(body.subdomain_id, 'subdomain_id')));

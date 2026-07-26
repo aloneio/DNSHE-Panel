@@ -3,7 +3,9 @@ export interface Env {
   DNS_PANEL_SESSION_SECRET?: string;
   DNS_PANEL_SESSION_MAX_AGE_SECONDS?: string;
   DEBUG?: string;
-  [key: string]: string | undefined;
+  ACCOUNTS_KV?: KVNamespace;
+  ACCOUNT_ENCRYPTION_KEY?: string;
+  [key: string]: string | KVNamespace | undefined;
 }
 
 export interface SessionPayload {
