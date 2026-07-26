@@ -28,8 +28,19 @@ describe('DNSHE V2 client', () => {
   it('preserves upstream 429 details and rejects body-level and invalid JSON failures', async () => {
     const limited = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false, error_code: 'RATE_LIMITED', message: 'Slow down', details: { remaining: 0 } }), { status: 429 })));
     await expect(limited.getQuota()).rejects.toMatchObject({ status: 429, errorCode: 'RATE_LIMITED', details: { remaining: 0 } } satisfies Partial<DNSHEApiError>);
-    const network = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockRejectedValue(new Error('connection reset')));
-    await expect(network.getQuota()).rejects.toMatchObject({ status: 502, errorCode: 'UPSTREAM_NETWORK_ERROR', details: { reason: 'connection reset' } });
+    const networkFetcher = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error('primary reset'), { cause: { code: 'ECONNRESET' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, quota: { available: 1 } }), { status: 200 }));
+    const network = new DNSHESubdomainAPI('https://api005.dnshe.com/index.php', 'key', 'secret', networkFetcher);
+    await expect(network.getQuota()).resolves.toMatchObject({ quota: { available: 1 } });
+    expect(String(networkFetcher.mock.calls[1][0])).toContain('my.dnshe.com');
+    expect(new Headers(networkFetcher.mock.calls[0][1].headers).get('User-Agent')).toBe('DNSHE-Panel/1.0');
+    const failedNetwork = new DNSHESubdomainAPI('https://api005.dnshe.com/index.php', 'key', 'secret', vi.fn().mockRejectedValue(new Error('connection reset')));
+    await expect(failedNetwork.getQuota()).rejects.toMatchObject({ status: 502, errorCode: 'UPSTREAM_NETWORK_ERROR', details: { attempts: [{ host: 'api005.dnshe.com' }, { host: 'my.dnshe.com' }] } });
+    const mutationFetcher = vi.fn().mockRejectedValue(new Error('write result unknown'));
+    const mutationClient = new DNSHESubdomainAPI('https://api005.dnshe.com/index.php', 'key', 'secret', mutationFetcher);
+    await expect(mutationClient.renewSubdomain(9)).rejects.toMatchObject({ details: { host: 'api005.dnshe.com', retrySuppressed: true } });
+    expect(mutationFetcher).toHaveBeenCalledTimes(1);
     const bodyFailure = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false, error_code: 'provider_operation_failed', message: 'Provider rejected the request' }), { status: 200 })));
     await expect(bodyFailure.getQuota()).rejects.toMatchObject({ status: 502, errorCode: 'provider_operation_failed' });
     const bodyLimited = new DNSHESubdomainAPI('https://api.example', 'key', 'secret', vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: false, error_code: 'rate_limit_exceeded', message: 'Slow down', details: { remaining: 0, reset_at: 'soon' } }), { status: 200 })));

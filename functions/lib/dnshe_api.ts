@@ -13,6 +13,19 @@ function bodyStatus(errorCode: unknown): number {
   return 502;
 }
 
+function networkReason(cause: unknown): string {
+  if (!(cause instanceof Error)) return 'Unknown network failure';
+  const nested = (cause as Error & { cause?: { name?: unknown; message?: unknown; code?: unknown } }).cause;
+  const parts = [cause.name, cause.message, typeof nested?.name === 'string' ? nested.name : undefined, typeof nested?.message === 'string' ? nested.message : undefined, typeof nested?.code === 'string' ? nested.code : undefined].filter(Boolean);
+  return parts.join(': ') || 'Unknown network failure';
+}
+
+function alternateDnsheUrl(url: URL): URL | undefined {
+  if (url.hostname === 'api005.dnshe.com') { const alternate = new URL(url); alternate.hostname = 'my.dnshe.com'; return alternate; }
+  if (url.hostname === 'my.dnshe.com') { const alternate = new URL(url); alternate.hostname = 'api005.dnshe.com'; return alternate; }
+  return undefined;
+}
+
 export class DNSHEApiError extends AppError {
   constructor(message: string, status: number, endpoint: string, action?: string, errorCode?: string, details?: unknown) {
     super(message, status, { errorCode, details, upstream: { endpoint, ...(action ? { action } : {}), status } });
@@ -36,7 +49,7 @@ export class DNSHESubdomainAPI {
     if (method === 'GET' && data) {
       for (const [key, value] of Object.entries(data)) if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
     }
-    const headers = new Headers({ 'Accept': 'application/json' });
+    const headers = new Headers({ 'Accept': 'application/json', 'User-Agent': 'DNSHE-Panel/1.0' });
     if (this.apiKey) headers.set('X-API-Key', this.apiKey);
     if (this.apiSecret) headers.set('X-API-Secret', this.apiSecret);
     const init: RequestInit = { method, headers };
@@ -45,10 +58,18 @@ export class DNSHESubdomainAPI {
       init.body = JSON.stringify(Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)));
     }
     let response: Response;
-    try { response = await this.fetcher(url.toString(), init); }
-    catch (cause) {
-      const reason = cause instanceof Error && cause.message ? cause.message : 'Unknown network failure';
-      throw new DNSHEApiError('DNSHE service is unavailable', 502, endpoint, action, 'UPSTREAM_NETWORK_ERROR', { reason });
+    try {
+      response = await this.fetcher(url.toString(), init);
+    } catch (primaryCause) {
+      const alternate = method === 'GET' ? alternateDnsheUrl(url) : undefined;
+      if (alternate) {
+        try { response = await this.fetcher(alternate.toString(), init); }
+        catch (alternateCause) {
+          throw new DNSHEApiError('DNSHE service is unavailable', 502, endpoint, action, 'UPSTREAM_NETWORK_ERROR', { attempts: [{ host: url.hostname, reason: networkReason(primaryCause) }, { host: alternate.hostname, reason: networkReason(alternateCause) }] });
+        }
+      } else {
+        throw new DNSHEApiError('DNSHE service is unavailable', 502, endpoint, action, 'UPSTREAM_NETWORK_ERROR', { reason: networkReason(primaryCause), host: url.hostname, retrySuppressed: method !== 'GET' });
+      }
     }
     const raw = await response.text();
     let body: Record<string, any>;
