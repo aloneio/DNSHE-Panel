@@ -30,5 +30,7 @@ export interface Pagination {
   per_page: number;
   total?: number;
   has_more?: boolean;
-  byAccount?: Record<string, { page: number; per_page: number; total?: number; has_more?: boolean }>;
+  next_page?: number;
+  prev_page?: number;
+  byAccount?: Record<string, { page: number; per_page: number; total?: number; has_more?: boolean; next_page?: number; prev_page?: number; count?: number }>;
 }

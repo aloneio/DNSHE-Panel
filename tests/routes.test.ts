@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { onRequest as auth } from '../functions/api/auth.ts';
 import { onRequest as subdomains } from '../functions/api/subdomains.ts';
+import { onRequest as keys } from '../functions/api/keys.ts';
+import { onRequest as whois } from '../functions/api/whois.ts';
 import { onRequest as records } from '../functions/api/dns_records.ts';
 import { onRequest as permanentUpgrade } from '../functions/api/permanent_upgrade.ts';
 import { createSession } from '../functions/lib/session.ts';
@@ -47,6 +49,54 @@ describe('route contracts', () => {
 import { resetRateLimitForTests } from '../functions/lib/rate_limit.ts';
 
 describe('upstream mappings and login protection', () => {
+  it('supports the complete documented subdomain list query and detail action', async () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, count: 1, subdomains: [{ id: 7, subdomain: 'app', rootdomain: 'example.com' }], pagination: { page: 2, per_page: 500, total: 1, has_more: false } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, subdomain: { id: 7, full_domain: 'app.example.com' }, dns_records: [{ id: 9, type: 'A' }], dns_count: 1 }), { status: 200 }));
+    const session = await createSession(env);
+    const headers = { Cookie: `dnshe_session=${session.token}` };
+    const listed = await subdomains(context(new Request('https://panel.test/api/subdomains?accountIndex=2&page=2&per_page=500&include_total=1&search=app&rootdomain=example.com&status=active&created_from=2025-01-01&created_to=2025-01-31&sort_by=expires_at&sort_dir=asc&fields=id,subdomain,status', { headers })));
+    expect(listed.status).toBe(200);
+    const [listUrl] = fetcher.mock.calls[0];
+    expect(String(listUrl)).toContain('per_page=500');
+    expect(String(listUrl)).toContain('include_total=1');
+    expect(String(listUrl)).toContain('rootdomain=example.com');
+    expect(String(listUrl)).toContain('created_from=2025-01-01');
+    expect(String(listUrl)).toContain('sort_by=expires_at');
+    expect(String(listUrl)).toContain('fields=id%2Csubdomain%2Cstatus');
+    const detail = await subdomains(context(new Request('https://panel.test/api/subdomains?accountIndex=2&subdomain_id=7', { headers })));
+    expect(await detail.json()).toMatchObject({ data: { subdomain: { id: 7, accountIndex: '2' }, dns_records: [{ id: 9 }], dns_count: 1 } });
+    fetcher.mockRestore();
+  });
+
+  it('accepts documented key DELETE and DNS PATCH variants', async () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 })));
+    const keyHeaders = await csrfHeaders('DELETE');
+    const deleted = await keys(context(new Request('https://panel.test/api/keys', { method: 'DELETE', headers: keyHeaders, body: JSON.stringify({ accountIndex: '2', key_id: 4 }) })));
+    expect(deleted.status).toBe(200);
+    const recordHeaders = await csrfHeaders('PATCH');
+    const updated = await records(context(new Request('https://panel.test/api/dns_records', { method: 'PATCH', headers: recordHeaders, body: JSON.stringify({ accountIndex: '2', id: 8, line: 'cn.mt', ttl: 600 }) })));
+    expect(updated.status).toBe(200);
+    expect(JSON.parse(String(fetcher.mock.calls[1][1]!.body))).toMatchObject({ id: 8, line: 'cn.mt', ttl: 600 });
+    fetcher.mockRestore();
+  });
+
+  it('uses public WHOIS first and authenticated fallback when required', async () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, domain: 'foo.example.com', registered: false, status: 'unregistered' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: false, error_code: 'auth_invalid_credentials', message: 'API verification required' }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, domain: 'foo.example.com', status: 'active' }), { status: 200 }));
+    const session = await createSession(env);
+    const headers = { Cookie: `dnshe_session=${session.token}` };
+    const publicResult = await whois(context(new Request('https://panel.test/api/whois?accountIndex=2&mode=auto&domain=foo.example.com', { headers })));
+    expect(await publicResult.json()).toMatchObject({ data: { authMode: 'public', whois: { registered: false } } });
+    expect(new Headers(fetcher.mock.calls[0][1]!.headers).has('X-API-Key')).toBe(false);
+    const fallbackResult = await whois(context(new Request('https://panel.test/api/whois?accountIndex=2&mode=auto&domain=foo.example.com', { headers })));
+    expect(await fallbackResult.json()).toMatchObject({ data: { authMode: 'authenticated', whois: { status: 'active' } } });
+    expect(new Headers(fetcher.mock.calls[2][1]!.headers).get('X-API-Key')).toBe('key-two');
+    fetcher.mockRestore();
+  });
+
   it('sends structured SRV fields and permanent-upgrade create action to DNSHE', async () => {
     const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true, data: {} }), { status: 200 })));
     const headers = await csrfHeaders();

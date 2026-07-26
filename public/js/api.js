@@ -44,8 +44,15 @@ export async function apiFetch(path, options = {}) {
 }
 
 export function errorMessage(error) {
-  if (error?.status === 429 && error?.details?.reset_at) return `${error.message} Retry after ${error.details.reset_at}.`;
-  return error?.message || 'Unexpected error';
+  const code = error?.errorCode ? ` [${error.errorCode}]` : '';
+  const request = error?.requestId ? ` Request ${error.requestId}.` : '';
+  if (error?.status === 429) {
+    const remaining = error?.details?.remaining !== undefined ? ` ${error.details.remaining} request(s) remaining.` : '';
+    const reset = error?.details?.reset_at ? ` Retry after ${error.details.reset_at}.` : '';
+    return `${error.message || 'Rate limit exceeded'}${code}${remaining}${reset}${request}`;
+  }
+  if (error?.upstream) return `${error?.message || 'Request failed'}${code} Upstream ${error.upstream.endpoint}${error.upstream.action ? `/${error.upstream.action}` : ''} returned ${error.upstream.status}.${request}`;
+  return `${error?.message || 'Unexpected error'}${code}${request}`;
 }
 
 export async function withLoading(button, task) {

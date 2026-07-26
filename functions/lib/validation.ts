@@ -6,6 +6,7 @@ const SUBDOMAIN = new RegExp(`^(?=.{1,63}$)${DOMAIN_LABEL}$`, 'i');
 const RECORD_TYPES = new Set(['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA']);
 
 export interface PaginationInput { page: number; per_page: number; include_total: boolean; }
+export interface PaginationOptions { defaultPerPage?: number; maxPerPage?: number; }
 export interface DnsRecordInput {
   type?: string;
   name?: string;
@@ -41,16 +42,18 @@ export function positiveId(value: unknown, field: string): number {
   return parsed;
 }
 
-export function pagination(params: URLSearchParams): PaginationInput {
+export function pagination(params: URLSearchParams, options: PaginationOptions = {}): PaginationInput {
+  const defaultPerPage = options.defaultPerPage ?? 50;
+  const maxPerPage = options.maxPerPage ?? 100;
   const rawPage = params.get('page') || '1';
-  const rawPerPage = params.get('per_page') || '50';
+  const rawPerPage = params.get('per_page') || String(defaultPerPage);
   if (!/^\d+$/.test(rawPage) || !/^\d+$/.test(rawPerPage)) throw new ValidationError('page and per_page must be integers');
   const page = Number(rawPage);
   const per_page = Number(rawPerPage);
-  if (page < 1 || per_page < 1 || per_page > 100) throw new ValidationError('page must be at least 1 and per_page must be between 1 and 100');
+  if (page < 1 || per_page < 1 || per_page > maxPerPage) throw new ValidationError(`page must be at least 1 and per_page must be between 1 and ${maxPerPage}`);
   const include = params.get('include_total');
-  if (include !== null && include !== 'true' && include !== 'false') throw new ValidationError('include_total must be true or false');
-  return { page, per_page, include_total: include === 'true' };
+  if (include !== null && !['1', '0', 'true', 'false'].includes(include)) throw new ValidationError('include_total must be 1, 0, true, or false');
+  return { page, per_page, include_total: include === '1' || include === 'true' };
 }
 
 export function subdomain(value: unknown): string {
@@ -63,6 +66,35 @@ export function domain(value: unknown, field = 'domain'): string {
   const result = requiredString(value, field, 253).replace(/\.$/, '').toLowerCase();
   if (!FQDN.test(result)) throw new ValidationError(`${field} has an invalid format`);
   return result;
+}
+
+export function dateOnly(value: unknown, field: string): string | undefined {
+  const result = string(value, field, { max: 10 });
+  if (!result) return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(result);
+  if (!match) throw new ValidationError(`${field} must use YYYY-MM-DD`);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) throw new ValidationError(`${field} must be a valid calendar date`);
+  return result;
+}
+
+export function optionalEnum(value: unknown, field: string, allowed: readonly string[]): string | undefined {
+  const result = string(value, field, { max: 128 });
+  if (!result) return undefined;
+  if (!allowed.includes(result)) throw new ValidationError(`${field} must be one of: ${allowed.join(', ')}`);
+  return result;
+}
+
+export function subdomainFields(value: unknown): string | undefined {
+  const result = string(value, 'fields', { max: 512 });
+  if (!result || result === 'all') return result || undefined;
+  const allowed = new Set(['id', 'subdomain', 'rootdomain', 'full_domain', 'status', 'created_at', 'updated_at', 'expires_at', 'never_expires', 'cloudflare_zone_id', 'provider_account_id']);
+  const fields = result.split(',').map((field) => field.trim()).filter(Boolean);
+  if (!fields.length || fields.some((field) => !allowed.has(field))) throw new ValidationError('fields contains an unsupported subdomain field');
+  return [...new Set(fields)].join(',');
 }
 
 export function keyName(value: unknown): string {
@@ -96,22 +128,26 @@ export function dnsRecord(value: Record<string, unknown>, requireType = true): D
   if (name && name !== '@' && !/^(?:[A-Za-z0-9_*](?:[A-Za-z0-9_*-]{0,61}[A-Za-z0-9_*])?\.)*[A-Za-z0-9_*](?:[A-Za-z0-9_*-]{0,61}[A-Za-z0-9_*])?$/.test(name)) throw new ValidationError('name has an invalid format');
   const content = string(value.content, 'content', { max: 2048, trim: false });
   const line = string(value.line, 'line', { max: 64 });
-  const ttl = optionalNumber(value.ttl, 'ttl', 60, 86400);
-  const priority = optionalNumber(value.priority, 'priority', 0, 65535);
-  const weight = optionalNumber(value.weight, 'weight', 0, 65535);
-  const port = optionalNumber(value.port, 'port', 1, 65535);
-  const target = string(value.target, 'target', { max: 253 });
-  const caa_flag = optionalNumber(value.caa_flag, 'caa_flag', 0, 255);
-  const caa_tag = string(value.caa_tag, 'caa_tag', { max: 32 });
+  const ttlInput = optionalNumber(value.ttl, 'ttl', 60, 86400);
+  const priorityInput = optionalNumber(value.priority, 'priority', 0, 65535);
+  const weight = optionalNumber(value.record_weight ?? value.weight, 'weight', 0, 65535);
+  const port = optionalNumber(value.record_port ?? value.port, 'port', 1, 65535);
+  const target = string(value.record_target ?? value.target, 'target', { max: 253 });
+  const caaFlagInput = optionalNumber(value.caa_flag, 'caa_flag', 0, 255);
+  const caaTagInput = string(value.caa_tag, 'caa_tag', { max: 32 });
   const caa_value = string(value.caa_value, 'caa_value', { max: 1024, trim: false });
-  if (type === 'SRV') {
-    if (priority === undefined || weight === undefined || port === undefined || !target) throw new ValidationError('SRV requires priority, weight, port, and target');
-  } else if (type === 'CAA') {
-    if (caa_flag === undefined || !caa_tag || caa_value === undefined) throw new ValidationError('CAA requires caa_flag, caa_tag, and caa_value');
-    if (!/^(issue|issuewild|iodef)$/i.test(caa_tag)) throw new ValidationError('CAA tag must be issue, issuewild, or iodef');
+  const ttl = requireType ? ttlInput ?? 600 : ttlInput;
+  const priority = requireType && type === 'MX' ? priorityInput ?? 10 : requireType && type === 'SRV' ? priorityInput ?? 0 : priorityInput;
+  const caa_flag = requireType && type === 'CAA' ? caaFlagInput ?? 0 : caaFlagInput;
+  const caa_tag = requireType && type === 'CAA' ? caaTagInput ?? 'issue' : caaTagInput;
+  if (requireType && type === 'SRV') {
+    if (weight === undefined || port === undefined || !target) throw new ValidationError('SRV requires weight, port, and target');
+  } else if (requireType && type === 'CAA') {
+    if (caa_value === undefined) throw new ValidationError('CAA requires caa_value');
   } else if (requireType && !content) {
     throw new ValidationError(`${type} requires content`);
   }
+  if (caa_tag && !/^(issue|issuewild|iodef)$/i.test(caa_tag)) throw new ValidationError('CAA tag must be issue, issuewild, or iodef');
   const result = { ...(type ? { type } : {}), ...(name === undefined ? {} : { name }), ...(content === undefined ? {} : { content }), ...(ttl === undefined ? {} : { ttl }), ...(priority === undefined ? {} : { priority }), ...(line === undefined ? {} : { line }), ...(weight === undefined ? {} : { weight }), ...(port === undefined ? {} : { port }), ...(target === undefined ? {} : { target }), ...(caa_flag === undefined ? {} : { caa_flag }), ...(caa_tag === undefined ? {} : { caa_tag }), ...(caa_value === undefined ? {} : { caa_value }) };
   if (!requireType && Object.keys(result).length === 0) throw new ValidationError('At least one DNS record field must be provided');
   return result;

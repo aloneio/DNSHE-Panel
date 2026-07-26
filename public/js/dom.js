@@ -8,7 +8,7 @@ export function el(tag, attributes = {}, children = []) {
     if (name === 'className') node.className = String(value);
     else if (name === 'htmlFor') node.htmlFor = String(value);
     else if (name === 'text') node.textContent = String(value);
-    else if (name.startsWith('data-')) node.dataset[name.slice(5)] = String(value);
+    else if (name.startsWith('data-')) node.setAttribute(name, String(value));
     else if (name in node && typeof value !== 'string') node[name] = value;
     else node.setAttribute(name, String(value));
   }
@@ -19,6 +19,6 @@ export function el(tag, attributes = {}, children = []) {
 export function text(value) { return document.createTextNode(value == null ? '' : String(value)); }
 export function clear(node) { node.replaceChildren(); return node; }
 export function appendChildren(node, children) { for (const child of children.flat(Infinity)) node.append(child instanceof Node ? child : text(child)); return node; }
-export function textCell(value, className) { return el('td', { ...(className ? { className } : {}), text: value == null ? '—' : String(value) }); }
+export function textCell(value, className, label) { return el('td', { ...(className ? { className } : {}), ...(label ? { 'data-label': label } : {}), text: value == null || value === '' ? '—' : String(value) }); }
 export function tableRow(values) { return el('tr', {}, values.map((value) => value instanceof Node ? value : textCell(value))); }
 export function button(label, options = {}) { return el('button', { type: 'button', className: 'btn', text: label, ...options }); }

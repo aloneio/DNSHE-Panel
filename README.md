@@ -9,9 +9,11 @@ A security-focused, multi-account DNSHE API V2.0 administration panel built with
 - Signed `HttpOnly; Secure; SameSite=Strict` session cookies with per-session CSRF tokens.
 - Global Pages middleware with a restrictive CSP, security headers, API authentication, and CSRF enforcement.
 - Explicit multi-account selection from configured `DNSHE_KEY_<index>` / `DNSHE_SECRET_<index>` pairs. Aliases are display-only and never used as identifiers.
-- DNSHE V2 subdomains, records (A/AAAA/CNAME/MX/TXT/NS/SRV/CAA), API keys, quota, authenticated WHOIS, and permanent-upgrade requests.
+- Complete DNSHE V2 subdomain coverage: list with every documented filter/sort/field/pagination option, register, detail, delete, and renew.
+- Complete DNS record management for A/AAAA/CNAME/MX/TXT/NS/SRV/CAA, including provider/internal IDs, resolution line, structured SRV/CAA fields, method variants, and record pagination.
+- API key list/create/regenerate/delete, structured quota metrics, WHOIS public-first inspection with authenticated fallback, and permanent-upgrade requests/eligibility/assist logs.
 - Validated mutations, structured error responses with request IDs, upstream 429 details, conservative pagination, and one-page-per-account aggregation.
-- A responsive dark UI using native dialogs, text-only rendering, visible focus states, and reduced-motion support.
+- A responsive graphite/amber/olive dark operations UI with no blue or purple palette, native dialogs, mobile card tables, text-only rendering, visible focus states, and reduced-motion support.
 
 ## Configure secrets
 
@@ -84,4 +86,4 @@ All `/api/*` routes except authentication login require a valid signed session. 
 
 or a structured error with `message`, `requestId`, optional `error_code`, `details`, and sanitized `upstream` metadata. The frontend renders upstream strings as text, does not use `innerHTML`, and never persists passwords or tokens in web storage.
 
-Subdomain `accountIndex=all` is an aggregation of the selected page from each account; it is not globally sorted or a complete inventory. DNSHE V2 response shapes for SRV/CAA and permanent upgrades should be verified using a non-production account before a live rollout. Permanent upgrade and API-key regeneration actions are quota-affecting or destructive and require confirmation in the UI. An API secret is displayed only in its immediate create/regenerate response; closing the dialog makes it unrecoverable through this panel.
+Subdomain `accountIndex=all` is an aggregation of the selected page from each account; it is not globally sorted or a complete inventory. WHOIS defaults to DNSHE's documented public no-key mode, then retries with the selected account when the upstream requires API verification; users may also force authenticated mode. The panel route itself remains protected by the panel session so it cannot be used as an anonymous public proxy. DNSHE V2 response shapes for SRV/CAA and permanent upgrades should be verified using a non-production account before a live rollout. Permanent upgrade and API-key regeneration actions are quota-affecting or destructive and require confirmation in the UI. An API secret is displayed only in its immediate create/regenerate response; closing the dialog makes it unrecoverable through this panel.
