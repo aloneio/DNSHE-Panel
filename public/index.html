@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Secure multi-account DNSHE V2 management panel">
+  <title>DNSHE Panel · Domains</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="site-header">
+    <div class="shell header-content">
+      <div>
+        <p class="eyebrow">DNSHE V2 OPERATIONS</p>
+        <h1>Domain control plane</h1>
+        <p class="page-intro">Manage configured DNSHE accounts without exposing credentials to the browser.</p>
+      </div>
+      <nav class="header-actions" aria-label="Primary navigation">
+        <a class="btn btn--quiet" href="/keys.html">Keys &amp; tools</a>
+        <button id="logout-button" class="btn btn--quiet" type="button">Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="shell page-stack">
+    <section class="panel controls-panel" aria-labelledby="subdomains-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">INVENTORY</p>
+          <h2 id="subdomains-heading">Subdomains</h2>
+        </div>
+        <button id="register-button" class="btn btn--primary" type="button">Register subdomain</button>
+      </div>
+      <div class="filter-grid">
+        <div class="field">
+          <label for="account-filter">Account</label>
+          <select id="account-filter" name="account-filter"></select>
+        </div>
+        <div class="field">
+          <label for="subdomain-query">Filter current page</label>
+          <input id="subdomain-query" name="subdomain-query" type="search" maxlength="253" placeholder="example">
+        </div>
+        <div class="field">
+          <label for="per-page">Rows per account</label>
+          <select id="per-page" name="per-page">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="field field--action">
+          <span class="field-label">Refresh</span>
+          <button id="refresh-button" class="btn btn--secondary" type="button">Refresh list</button>
+        </div>
+      </div>
+      <p id="subdomains-status" class="status" role="status" aria-live="polite" hidden></p>
+      <p class="quiet-note">All-account views return one conservatively paginated page per configured account. DNS records are loaded only when opened.</p>
+    </section>
+
+    <section class="panel" aria-label="Subdomain list">
+      <div class="table-wrap">
+        <table>
+          <caption>Configured DNSHE subdomains</caption>
+          <thead><tr>
+            <th scope="col">Domain</th><th scope="col">Root domain</th><th scope="col">Status</th><th scope="col">Account</th><th scope="col">DNS records</th><th scope="col">Actions</th>
+          </tr></thead>
+          <tbody id="subdomains-body"><tr><td colspan="6" class="empty-cell">Sign in to load subdomains.</td></tr></tbody>
+        </table>
+      </div>
+      <nav class="pagination" aria-label="Subdomain pagination">
+        <button id="previous-page" class="btn btn--quiet" type="button">Previous</button>
+        <span id="page-label" aria-live="polite">Page 1</span>
+        <button id="next-page" class="btn btn--quiet" type="button">Next</button>
+      </nav>
+    </section>
+  </main>
+
+  <dialog id="login-dialog" aria-labelledby="login-title" aria-describedby="login-description">
+    <form id="login-form" method="dialog" class="dialog-stack">
+      <p class="eyebrow">SECURE SESSION</p>
+      <h2 id="login-title">Sign in to DNSHE Panel</h2>
+      <p id="login-description" class="dialog-copy">Your password is used only to create a signed, HttpOnly session. It is never stored in this browser.</p>
+      <div class="field"><label for="login-password">Panel password</label><input id="login-password" name="password" type="password" autocomplete="current-password" required></div>
+      <p id="login-status" class="status" role="status" aria-live="polite" hidden></p>
+      <button class="btn btn--primary" type="submit">Sign in</button>
+    </form>
+  </dialog>
+
+  <dialog id="register-dialog" aria-labelledby="register-title">
+    <form id="register-form" class="dialog-stack">
+      <div class="dialog-header"><h2 id="register-title">Register subdomain</h2><button class="icon-button" type="button" data-dialog-close aria-label="Close dialog">Close</button></div>
+      <p class="dialog-copy">Requests are sent to the explicitly selected account.</p>
+      <div class="field"><label for="register-account">Account</label><select id="register-account" name="accountIndex" required></select></div>
+      <div class="field"><label for="register-subdomain">Subdomain label</label><input id="register-subdomain" name="subdomain" autocomplete="off" maxlength="63" required placeholder="project"></div>
+      <div class="field"><label for="register-rootdomain">Root domain</label><input id="register-rootdomain" name="rootdomain" autocomplete="off" maxlength="253" required placeholder="example.com"></div>
+      <p class="form-status status" role="status" aria-live="polite" hidden></p>
+      <button class="btn btn--primary" type="submit">Submit registration</button>
+    </form>
+  </dialog>
+
+  <dialog id="records-dialog" class="dialog--wide" aria-labelledby="records-title">
+    <div class="dialog-stack">
+      <div class="dialog-header"><h2 id="records-title">DNS records</h2><button class="icon-button" type="button" data-dialog-close aria-label="Close dialog">Close</button></div>
+      <div class="section-heading section-heading--compact"><p class="dialog-copy">Records load on demand to respect DNSHE rate limits.</p><button id="open-record-editor" class="btn btn--primary" type="button">Add record</button></div>
+      <div class="table-wrap"><table>
+        <caption>DNS records for the selected subdomain</caption>
+        <thead><tr><th scope="col">ID</th><th scope="col">Type</th><th scope="col">Name</th><th scope="col">Value</th><th scope="col">TTL</th><th scope="col">Priority</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="records-body"></tbody>
+      </table></div>
+    </div>
+  </dialog>
+
+  <dialog id="record-dialog" aria-labelledby="record-title">
+    <form id="record-form" class="dialog-stack">
+      <div class="dialog-header"><h2 id="record-title">DNS record</h2><button class="icon-button" type="button" data-dialog-close aria-label="Close dialog">Close</button></div>
+      <input name="id" type="hidden">
+      <input name="record_id" type="hidden">
+      <div class="field"><label for="record-type">Record type</label><select id="record-type" name="type" required></select></div>
+      <div class="field"><label for="record-name">Name</label><input id="record-name" name="name" maxlength="253" value="@" placeholder="@"></div>
+      <div class="field"><label for="record-ttl">TTL (60–86400 seconds)</label><input id="record-ttl" name="ttl" type="number" min="60" max="86400" value="300" required></div>
+      <div id="record-type-fields" class="field-grid"></div>
+      <p class="form-status status" role="status" aria-live="polite" hidden></p>
+      <button class="btn btn--primary" type="submit">Save record</button>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <div class="dialog-stack">
+      <h2 id="confirm-title">Confirm action</h2>
+      <p id="confirm-message" class="dialog-copy"></p>
+      <div class="dialog-actions"><button id="confirm-cancel" class="btn btn--quiet" type="button">Cancel</button><button id="confirm-submit" class="btn btn--danger" type="button">Confirm</button></div>
+    </div>
+  </dialog>
+
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="/js/subdomains-page.js"></script>
+</body>
+</html>

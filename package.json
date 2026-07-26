@@ -1,0 +1,23 @@
+{
+  "name": "dnshe-panel",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Secure multi-account DNSHE V2 panel for Cloudflare Pages",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check:frontend": "node tests/check-js-syntax.mjs",
+    "check:security": "node tests/static-security.mjs",
+    "validate": "npm run typecheck && npm run check:frontend && npm run check:security && npm test",
+    "dev": "wrangler pages dev public --port 8788",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260722.1",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.21.0"
+  }
+}

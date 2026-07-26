@@ -1,0 +1,13 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+coverage/
+.audit/
+.pi-subagents/
+.pi-loop.json.lock
+*.cookies
+*.log
+.tmp/
