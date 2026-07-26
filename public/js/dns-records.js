@@ -3,6 +3,7 @@ import { button, clear, el, textCell } from './dom.js';
 import { bindDialogClose, closeDialog, confirmAction, openDialog } from './dialog.js';
 import { deserializeRecord, fieldsFor, recordTypes, recordValue, serializeRecord } from './record-schema.js';
 import { clearStatus, showStatus, toast } from './status.js';
+import { t } from './i18n.js';
 
 let controller = null;
 let selected = null;
@@ -15,7 +16,7 @@ function renderFields(form, values = {}) {
   for (const field of fieldsFor(type)) {
     const id = `record-${field.name}`;
     const input = el('input', { id, name: field.name, type: field.type || 'text', required: field.required || false, ...(field.min !== undefined ? { min: field.min } : {}), ...(field.max !== undefined ? { max: field.max } : {}), ...(field.placeholder ? { placeholder: field.placeholder } : {}), value: values[field.name] ?? '' });
-    container.append(el('div', { className: 'field' }, [el('label', { htmlFor: id, text: field.label }), input]));
+    container.append(el('div', { className: 'field' }, [el('label', { htmlFor: id, text: t(field.label) }), input]));
   }
 }
 
@@ -23,22 +24,22 @@ function renderRecords(records) {
   const body = document.querySelector('#records-body');
   clear(body);
   if (!records.length) {
-    body.append(el('tr', {}, [el('td', { colSpan: 8, className: 'empty-cell', text: 'No DNS records found.' })]));
+    body.append(el('tr', {}, [el('td', { colSpan: 8, className: 'empty-cell', text: t('No DNS records found.') })]));
     return;
   }
   for (const record of records) {
-    const actions = el('td', { className: 'actions', 'data-label': 'Actions' });
-    actions.append(button('Edit', { className: 'btn btn--quiet', 'data-action': 'edit-record', 'data-record': JSON.stringify(record) }));
-    actions.append(button('Delete', { className: 'btn btn--danger', 'data-action': 'delete-record', ...(record.id != null ? { 'data-internal-id': record.id } : {}), ...(record.record_id != null ? { 'data-provider-id': record.record_id } : {}) }));
-    const identity = el('td', { 'data-label': 'IDs' }, [el('div', { className: 'cell-primary mono', text: record.id ?? '—' }), el('div', { className: 'cell-secondary mono', text: record.record_id || 'No provider ID' })]);
-    const line = `${record.line || 'default'} / ${record.proxied === true ? 'proxied' : record.proxied === false ? 'DNS only' : '—'}`;
+    const actions = el('td', { className: 'actions', 'data-label': t('Actions') });
+    actions.append(button(t('Edit'), { className: 'btn btn--quiet', 'data-action': 'edit-record', 'data-record': JSON.stringify(record) }));
+    actions.append(button(t('Delete'), { className: 'btn btn--danger', 'data-action': 'delete-record', ...(record.id != null ? { 'data-internal-id': record.id } : {}), ...(record.record_id != null ? { 'data-provider-id': record.record_id } : {}) }));
+    const identity = el('td', { 'data-label': t('IDs') }, [el('div', { className: 'cell-primary mono', text: record.id ?? '—' }), el('div', { className: 'cell-secondary mono', text: record.record_id || t('No provider ID') })]);
+    const line = `${record.line || t('default')} / ${record.proxied === true ? t('proxied') : record.proxied === false ? t('DNS only') : '—'}`;
     const lifecycle = `${record.status || '—'} / ${record.updated_at || record.created_at || '—'}`;
-    body.append(el('tr', {}, [identity, textCell(record.type, '', 'Type'), textCell(record.name, 'mono', 'Name'), textCell(recordValue(record), 'mono', 'Value'), textCell(record.ttl, '', 'TTL'), textCell(line, '', 'Line / Proxy'), textCell(lifecycle, '', 'Status / Updated'), actions]));
+    body.append(el('tr', {}, [identity, textCell(record.type, '', t('Type')), textCell(record.name, 'mono', t('Name')), textCell(recordValue(record), 'mono', t('Value')), textCell(record.ttl, '', t('TTL')), textCell(line, '', t('Line / Proxy')), textCell(lifecycle, '', t('Status / Updated')), actions]));
   }
 }
 
 function renderPagination() {
-  document.querySelector('#records-page-label').textContent = `Page ${paging.page}`;
+  document.querySelector('#records-page-label').textContent = t('Page {page}', { page: paging.page });
   document.querySelector('#records-previous').disabled = paging.page <= 1;
   document.querySelector('#records-next').disabled = !paging.hasMore;
 }
@@ -48,7 +49,7 @@ async function loadRecords() {
   controller?.abort();
   controller = new AbortController();
   const body = document.querySelector('#records-body');
-  clear(body).append(el('tr', {}, [el('td', { colSpan: 8, className: 'empty-cell', text: 'Loading DNS records…' })]));
+  clear(body).append(el('tr', {}, [el('td', { colSpan: 8, className: 'empty-cell', text: t('Loading DNS records…') })]));
   try {
     const params = new URLSearchParams({ accountIndex: selected.accountIndex, subdomain_id: String(selected.id), page: String(paging.page), per_page: String(paging.perPage), include_total: '1' });
     const result = await apiFetch(`/api/dns_records?${params}`, { signal: controller.signal });
@@ -83,9 +84,9 @@ export function installDnsRecords() {
       form.elements.line.value = values.line;
       renderFields(form, values); openDialog(editor, target); return;
     }
-    if (action === 'delete-record' && await confirmAction({ title: 'Delete DNS record', message: `Delete ${target.dataset.internalId ? `internal record ${target.dataset.internalId}` : `provider record ${target.dataset.providerId}`} permanently?`, confirmLabel: 'Delete record' })) {
+    if (action === 'delete-record' && await confirmAction({ title: t('Delete DNS record'), message: t(target.dataset.internalId ? 'Delete internal record {id} permanently?' : 'Delete provider record {id} permanently?', { id: target.dataset.internalId || target.dataset.providerId }), confirmLabel: t('Delete record') })) {
       const identity = target.dataset.internalId ? { id: Number(target.dataset.internalId) } : { record_id: target.dataset.providerId };
-      try { await withLoading(target, () => apiFetch('/api/dns_records', { method: 'DELETE', body: JSON.stringify({ accountIndex: selected.accountIndex, ...identity }) })); toast('DNS record deleted.', 'success'); await loadRecords(); }
+      try { await withLoading(target, () => apiFetch('/api/dns_records', { method: 'DELETE', body: JSON.stringify({ accountIndex: selected.accountIndex, ...identity }) })); toast(t('DNS record deleted.'), 'success'); await loadRecords(); }
       catch (error) { toast(errorMessage(error), 'error'); }
     }
   });
@@ -99,7 +100,7 @@ export function installDnsRecords() {
       const editing = Boolean(internalId || providerId);
       if (internalId) data.id = Number(internalId); else if (providerId) data.record_id = providerId; else data.subdomain_id = selected.id;
       const result = await withLoading(form.querySelector('[type="submit"]'), () => apiFetch('/api/dns_records', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(data) }));
-      closeDialog(editor); toast(`DNS record ${editing ? 'updated' : 'created'} (${result.data.id || result.data.record_id || 'confirmed'}).`, 'success'); await loadRecords();
+      closeDialog(editor); toast(t('DNS record {operation} ({id}).', { operation: t(editing ? 'updated' : 'created'), id: result.data.id || result.data.record_id || t('confirmed') }), 'success'); await loadRecords();
     } catch (error) { showStatus(form.querySelector('.form-status'), errorMessage(error), 'error'); }
   });
   document.querySelector('#open-record-editor').addEventListener('click', (event) => { form.reset(); clearStatus(form.querySelector('.form-status')); form.elements.id.value = ''; form.elements.record_id.value = ''; form.elements.type.value = 'A'; form.elements.ttl.value = 600; renderFields(form); openDialog(editor, event.target); });
@@ -110,7 +111,7 @@ export function installDnsRecords() {
 export async function openRecords(subdomain, trigger) {
   selected = { accountIndex: subdomain.accountIndex, id: subdomain.subdomain_id || subdomain.id, domain: subdomain.full_domain || subdomain.domain || subdomain.subdomain };
   paging.page = 1;
-  document.querySelector('#records-title').textContent = `DNS records · ${selected.domain}`;
+  document.querySelector('#records-title').textContent = t('DNS records · {domain}', { domain: selected.domain });
   openDialog(document.querySelector('#records-dialog'), trigger);
   renderPagination();
   await loadRecords();

@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
 
 export const RECORD_SCHEMAS = {
@@ -23,7 +25,7 @@ export function serializeRecord(form) {
   for (const field of fieldsFor(type)) {
     const raw = values[field.name];
     const trimmed = String(raw ?? '').trim();
-    if (field.required && !trimmed) throw new Error(`${field.label} is required`);
+    if (field.required && !trimmed) throw new Error(t('{label} is required', { label: t(field.label) }));
     if (!trimmed) continue;
     output[field.name] = field.type === 'number' ? Number(raw) : trimmed;
   }

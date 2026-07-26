@@ -8,6 +8,7 @@ import { openRecords, installDnsRecords } from './dns-records.js';
 import { recordValue } from './record-schema.js';
 import { clearStatus, showStatus, toast } from './status.js';
 import { findSubdomainByIdentity, subdomainId } from './subdomain-identity.js';
+import { initializeI18n, t } from './i18n.js';
 
 const state = { accounts: [], subdomains: [], response: null };
 let pagination;
@@ -16,7 +17,7 @@ let initialized = false;
 function domainOf(item) { return item.full_domain || item.domain || [item.subdomain, item.rootdomain].filter(Boolean).join('.') || item.subdomain; }
 function badge(status) {
   const normalized = String(status || 'unknown').toLowerCase();
-  return el('span', { className: `badge badge--${normalized}`, text: status || 'Unknown' });
+  return el('span', { className: `badge badge--${normalized}`, text: t(status || 'Unknown') });
 }
 function labeledCell(label, children, className) { return el('td', { 'data-label': label, ...(className ? { className } : {}) }, Array.isArray(children) ? children : [children]); }
 
@@ -28,9 +29,9 @@ function renderMetrics(items, response) {
   document.querySelector('#metric-page').textContent = String(pagination.state.page);
   const byAccount = response?.pagination?.byAccount || {};
   const hasMore = Object.values(byAccount).some((item) => item.has_more);
-  document.querySelector('#metric-page-note').textContent = `Has more: ${hasMore ? 'yes' : 'no'}`;
+  document.querySelector('#metric-page-note').textContent = t('Has more: {value}', { value: t(hasMore ? 'yes' : 'no') });
   const totals = Object.values(byAccount).map((item) => item.total).filter(Number.isFinite);
-  document.querySelector('#total-label').textContent = totals.length ? `Reported total: ${totals.reduce((sum, value) => sum + value, 0)}` : 'Total not requested';
+  document.querySelector('#total-label').textContent = totals.length ? t('Reported total: {total}', { total: totals.reduce((sum, value) => sum + value, 0) }) : t('Total not requested');
 }
 
 function renderPartialErrors(errors = []) {
@@ -44,19 +45,19 @@ function renderSubdomains(items) {
   const body = document.querySelector('#subdomains-body');
   clear(body);
   if (!items.length) {
-    body.append(el('tr', {}, [el('td', { colSpan: 8, className: 'empty-cell', text: 'No subdomains match this page and filter set.' })]));
+    body.append(el('tr', {}, [el('td', { colSpan: 8, className: 'empty-cell', text: t('No subdomains match this page and filter set.') })]));
     return;
   }
   for (const item of items) {
     const identity = { 'data-account-index': item.accountIndex, 'data-id': subdomainId(item) };
-    const actions = el('td', { className: 'actions', 'data-label': 'Actions' });
-    actions.append(button('Details', { className: 'btn btn--quiet', 'data-action': 'details', ...identity }));
-    actions.append(button('DNS records', { className: 'btn btn--quiet', 'data-action': 'records', ...identity }));
-    actions.append(button('Renew', { className: 'btn btn--secondary', 'data-action': 'renew', ...identity }));
-    actions.append(button('Delete', { className: 'btn btn--danger', 'data-action': 'delete', ...identity }));
-    const domainCell = labeledCell('Domain', [el('div', { className: 'cell-primary', text: domainOf(item) }), el('div', { className: 'cell-secondary', text: item.rootdomain || '—' })]);
-    const providerCell = labeledCell('Provider', [el('div', { className: 'mono', text: item.cloudflare_zone_id || 'No zone ID' }), el('div', { className: 'cell-secondary', text: item.provider_account_id || 'No provider account ID' })]);
-    body.append(el('tr', {}, [domainCell, textCell(subdomainId(item), 'mono', 'ID'), labeledCell('Status', badge(item.status)), textCell(item.accountAlias, '', 'Account'), textCell(item.created_at, '', 'Created'), textCell(item.never_expires ? 'Never' : item.expires_at, '', 'Expires'), providerCell, actions]));
+    const actions = el('td', { className: 'actions', 'data-label': t('Actions') });
+    actions.append(button(t('Details'), { className: 'btn btn--quiet', 'data-action': 'details', ...identity }));
+    actions.append(button(t('DNS records'), { className: 'btn btn--quiet', 'data-action': 'records', ...identity }));
+    actions.append(button(t('Renew'), { className: 'btn btn--secondary', 'data-action': 'renew', ...identity }));
+    actions.append(button(t('Delete'), { className: 'btn btn--danger', 'data-action': 'delete', ...identity }));
+    const domainCell = labeledCell(t('Domain'), [el('div', { className: 'cell-primary', text: domainOf(item) }), el('div', { className: 'cell-secondary', text: item.rootdomain || '—' })]);
+    const providerCell = labeledCell(t('Provider'), [el('div', { className: 'mono', text: item.cloudflare_zone_id || t('No zone ID') }), el('div', { className: 'cell-secondary', text: item.provider_account_id || t('No provider account ID') })]);
+    body.append(el('tr', {}, [domainCell, textCell(subdomainId(item), 'mono', t('ID')), labeledCell(t('Status'), badge(item.status)), textCell(item.accountAlias, '', t('Account')), textCell(item.created_at, '', t('Created')), textCell(item.never_expires ? t('Never') : item.expires_at, '', t('Expires')), providerCell, actions]));
   }
 }
 
@@ -69,7 +70,7 @@ function filterParams() {
 
 async function loadSubdomains() {
   const status = document.querySelector('#subdomains-status');
-  showStatus(status, 'Loading subdomains…');
+  showStatus(status, t('Loading subdomains…'));
   try {
     const response = await apiFetch(`/api/subdomains?${filterParams()}`);
     state.response = response;
@@ -82,7 +83,7 @@ async function loadSubdomains() {
     pagination.setHasMore(Boolean(hasMore)); pagination.render();
     renderMetrics(state.subdomains, response);
     const failed = response.partialErrors?.length;
-    showStatus(status, failed ? `Loaded ${state.subdomains.length} domains; ${failed} account(s) returned errors below.` : `Loaded ${state.subdomains.length} domain(s).`, failed ? 'warning' : 'success');
+    showStatus(status, failed ? t('Loaded {count} domains; {failed} account(s) returned errors below.', { count: state.subdomains.length, failed }) : t('Loaded {count} domain(s).', { count: state.subdomains.length }), failed ? 'warning' : 'success');
   } catch (error) { state.subdomains = []; renderSubdomains([]); renderPartialErrors([]); renderMetrics([], null); showStatus(status, errorMessage(error), 'error'); }
 }
 
@@ -97,20 +98,20 @@ function detailItem(label, value) { return el('div', { className: 'detail-item' 
 function renderDetails(data) {
   const item = data.subdomain || {};
   const grid = document.querySelector('#details-grid'); clear(grid);
-  const fields = [['Full domain', domainOf(item)], ['ID', subdomainId(item)], ['Status', item.status], ['Account', item.accountAlias], ['Subdomain', item.subdomain], ['Root domain', item.rootdomain], ['Created', item.created_at], ['Updated', item.updated_at], ['Expires', item.never_expires ? 'Never' : item.expires_at], ['Never expires', item.never_expires ? 'Yes' : 'No'], ['Cloudflare zone', item.cloudflare_zone_id], ['Provider account', item.provider_account_id]];
+  const fields = [[t('Full domain'), domainOf(item)], [t('ID'), subdomainId(item)], [t('Status'), item.status], [t('Account'), item.accountAlias], [t('Subdomain'), item.subdomain], [t('Root domain'), item.rootdomain], [t('Created'), item.created_at], [t('Updated'), item.updated_at], [t('Expires'), item.never_expires ? t('Never') : item.expires_at], [t('Never expires'), item.never_expires ? t('Yes') : t('No')], [t('Cloudflare zone'), item.cloudflare_zone_id], [t('Provider account'), item.provider_account_id]];
   for (const [label, value] of fields) grid.append(detailItem(label, value));
-  document.querySelector('#details-dns-count').textContent = `${data.dns_count ?? data.dns_records?.length ?? 0} record(s) reported by the detail endpoint.`;
+  document.querySelector('#details-dns-count').textContent = t('{count} record(s) reported by the detail endpoint.', { count: data.dns_count ?? data.dns_records?.length ?? 0 });
   const body = document.querySelector('#details-records-body'); clear(body);
   const records = data.dns_records || [];
-  if (!records.length) body.append(el('tr', {}, [el('td', { colSpan: 6, className: 'empty-cell', text: 'No embedded DNS records.' })]));
-  for (const record of records) body.append(el('tr', {}, [textCell(record.id || record.record_id, 'mono', 'ID'), textCell(record.type, '', 'Type'), textCell(record.name, 'mono', 'Name'), textCell(recordValue(record), 'mono', 'Value'), textCell(record.ttl, '', 'TTL'), textCell(record.status, '', 'Status')]));
+  if (!records.length) body.append(el('tr', {}, [el('td', { colSpan: 6, className: 'empty-cell', text: t('No embedded DNS records.') })]));
+  for (const record of records) body.append(el('tr', {}, [textCell(record.id || record.record_id, 'mono', t('ID')), textCell(record.type, '', t('Type')), textCell(record.name, 'mono', t('Name')), textCell(recordValue(record), 'mono', t('Value')), textCell(record.ttl, '', t('TTL')), textCell(record.status, '', t('Status'))]));
 }
 
 async function openDetails(item, trigger) {
   try {
     const params = new URLSearchParams({ accountIndex: item.accountIndex, subdomain_id: String(subdomainId(item)) });
     const response = await withLoading(trigger, () => apiFetch(`/api/subdomains?${params}`));
-    document.querySelector('#details-title').textContent = `Domain details · ${domainOf(item)}`;
+    document.querySelector('#details-title').textContent = t('Domain details · {domain}', { domain: domainOf(item) });
     renderDetails(response.data); openDialog(document.querySelector('#details-dialog'), trigger);
   } catch (error) { toast(errorMessage(error), 'error'); }
 }
@@ -126,14 +127,14 @@ function setupSubdomainActions() {
     if (actionButton.dataset.action === 'details') return openDetails(item, actionButton);
     if (actionButton.dataset.action === 'records') return openRecords(item, actionButton);
     if (actionButton.dataset.action === 'renew') {
-      if (!await confirmAction({ title: 'Renew subdomain', message: `Renew ${domainOf(item)}? DNSHE may charge account balance and returns the exact amount.`, confirmLabel: 'Renew' })) return;
-      try { const response = await withLoading(actionButton, () => apiFetch('/api/subdomains', { method: 'PUT', body: JSON.stringify({ action: 'renew', accountIndex, subdomain_id }) })); showResult('Subdomain renewed', `${domainOf(item)} was renewed. Review expiry and charge details.`, response.data, actionButton); await loadSubdomains(); }
+      if (!await confirmAction({ title: t('Renew subdomain'), message: t('Renew {domain}? DNSHE may charge account balance and returns the exact amount.', { domain: domainOf(item) }), confirmLabel: t('Renew') })) return;
+      try { const response = await withLoading(actionButton, () => apiFetch('/api/subdomains', { method: 'PUT', body: JSON.stringify({ action: 'renew', accountIndex, subdomain_id }) })); showResult(t('Subdomain renewed'), t('{domain} was renewed. Review expiry and charge details.', { domain: domainOf(item) }), response.data, actionButton); await loadSubdomains(); }
       catch (error) { toast(errorMessage(error), 'error'); }
       return;
     }
     if (actionButton.dataset.action === 'delete') {
-      if (!await confirmAction({ title: 'Delete subdomain', message: `Delete ${domainOf(item)} permanently? DNSHE will also report how many DNS records were deleted.`, confirmLabel: 'Delete subdomain' })) return;
-      try { const response = await withLoading(actionButton, () => apiFetch('/api/subdomains', { method: 'DELETE', body: JSON.stringify({ accountIndex, subdomain_id }) })); showResult('Subdomain deleted', `${domainOf(item)} was deleted.`, response.data, actionButton); await loadSubdomains(); }
+      if (!await confirmAction({ title: t('Delete subdomain'), message: t('Delete {domain} permanently? DNSHE will also report how many DNS records were deleted.', { domain: domainOf(item) }), confirmLabel: t('Delete subdomain') })) return;
+      try { const response = await withLoading(actionButton, () => apiFetch('/api/subdomains', { method: 'DELETE', body: JSON.stringify({ accountIndex, subdomain_id }) })); showResult(t('Subdomain deleted'), t('{domain} was deleted.', { domain: domainOf(item) }), response.data, actionButton); await loadSubdomains(); }
       catch (error) { toast(errorMessage(error), 'error'); }
     }
   });
@@ -151,22 +152,23 @@ function setupRegistration() {
   });
   form.addEventListener('submit', async (event) => {
     event.preventDefault(); const values = Object.fromEntries(new FormData(form).entries());
-    try { const response = await withLoading(form.querySelector('[type="submit"]'), () => apiFetch('/api/subdomains', { method: 'POST', body: JSON.stringify({ action: 'register', ...values }) })); closeDialog(dialog); showResult('Subdomain registered', response.data.message || 'Registration completed.', response.data, document.querySelector('#register-button')); pagination.reset(); await loadSubdomains(); }
+    try { const response = await withLoading(form.querySelector('[type="submit"]'), () => apiFetch('/api/subdomains', { method: 'POST', body: JSON.stringify({ action: 'register', ...values }) })); closeDialog(dialog); showResult(t('Subdomain registered'), response.data.message || t('Registration completed.'), response.data, document.querySelector('#register-button')); pagination.reset(); await loadSubdomains(); }
     catch (error) { showStatus(form.querySelector('.form-status'), errorMessage(error), 'error'); }
   });
 }
 
 async function initializeSafely() {
   try { await initialize(); }
-  catch (error) { showStatus(document.querySelector('#subdomains-status'), `Signed in, but the panel could not initialize: ${errorMessage(error)}`, 'error'); toast(errorMessage(error), 'error'); }
+  catch (error) { showStatus(document.querySelector('#subdomains-status'), t('Signed in, but the panel could not initialize: {message}', { message: errorMessage(error) }), 'error'); toast(errorMessage(error), 'error'); }
 }
 
 async function start() {
+  initializeI18n();
   installDnsRecords();
   ['details-dialog', 'result-dialog'].forEach((id) => bindDialogClose(document.querySelector(`#${id}`)));
   const authenticate = installAuthentication({ onAuthenticated: initializeSafely });
   try { await refreshSession(); }
-  catch (error) { if (error?.status === 401) authenticate.requireLogin(); else showStatus(document.querySelector('#subdomains-status'), `Unable to check the current session: ${errorMessage(error)}`, 'error'); return; }
+  catch (error) { if (error?.status === 401) authenticate.requireLogin(); else showStatus(document.querySelector('#subdomains-status'), t('Unable to check the current session: {message}', { message: errorMessage(error) }), 'error'); return; }
   await initializeSafely();
 }
 

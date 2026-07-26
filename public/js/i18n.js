@@ -1,0 +1,395 @@
+const LANGUAGE_COOKIE = 'dnshe_panel_language';
+const DEFAULT_LANGUAGE = 'zh-CN';
+const originals = new WeakMap();
+
+const ZH = {
+  'DNSHE V2 CONTROL PLANE': 'DNSHE V2 控制台',
+  'Domains & DNS': '域名与 DNS',
+  'Keys, quota & tools': '密钥、配额与工具',
+  'Sign out': '退出登录',
+  'Complete inventory, lifecycle and record management for every configured account.': '集中管理所有已配置账号的域名清单、生命周期和 DNS 记录。',
+  'Credential lifecycle, capacity, WHOIS inspection and permanent upgrade operations.': '管理凭据生命周期、配额、WHOIS 查询和永久升级操作。',
+  'Primary navigation': '主导航',
+  'Skip to main content': '跳至主要内容',
+  'Loaded domains': '已加载域名',
+  'Current account page(s)': '当前账号页数据',
+  'Active': '正常',
+  'Ready for service': '可正常使用',
+  'Needs attention': '需要关注',
+  'Suspended or expired': '已暂停或已过期',
+  'Accounts': '账号数',
+  'Configured scopes': '已配置账号',
+  'Page': '页码',
+  'Has more: unknown': '是否还有更多：未知',
+  'SUBDOMAINS · LIST / REGISTER / GET / RENEW / DELETE': '子域名 · 列表 / 注册 / 详情 / 续期 / 删除',
+  'Domain inventory': '域名清单',
+  'Search, filter, sort and inspect the complete V2 subdomain dataset.': '搜索、筛选、排序并查看完整的 V2 子域名数据。',
+  'Register subdomain': '注册子域名',
+  'Account': '账号',
+  'Search upstream': '搜索上游数据',
+  'Status': '状态',
+  'All statuses': '全部状态',
+  'Rows per account': '每个账号显示数量',
+  'Apply': '应用',
+  'Load inventory': '加载清单',
+  'Advanced filters and response fields': '高级筛选与响应字段',
+  'Root domain': '根域名',
+  'Created from': '创建起始日期',
+  'Created to': '创建截止日期',
+  'Sort by': '排序字段',
+  'ID': 'ID',
+  'Created': '创建时间',
+  'Updated': '更新时间',
+  'Expiry': '到期时间',
+  'Direction': '排序方向',
+  'Descending': '降序',
+  'Ascending': '升序',
+  'Total count': '总数量',
+  'Fast mode (off)': '快速模式（不统计总数）',
+  'Include total (slower)': '统计总数（速度较慢）',
+  'Response fields': '响应字段',
+  'All fields': '全部字段',
+  'Lifecycle fields': '生命周期字段',
+  'Compact': '精简字段',
+  'All-account mode loads the requested page independently for each account. Global ordering across accounts is not implied.': '全部账号模式会分别加载每个账号的指定页，不代表跨账号的全局排序。',
+  'Configured DNSHE subdomains': '已配置的 DNSHE 子域名',
+  'Domain': '域名',
+  'Expires': '到期时间',
+  'Provider': '解析服务商',
+  'Actions': '操作',
+  'Sign in to load subdomains.': '请登录后加载子域名。',
+  'Previous': '上一页',
+  'Next': '下一页',
+  'Page 1': '第 1 页',
+  'Total not requested': '未请求总数',
+  'SECURE SESSION': '安全会话',
+  'Sign in to DNSHE Panel': '登录 DNSHE 面板',
+  'Your password creates a signed HttpOnly session and is never stored by this page.': '密码仅用于创建带签名的 HttpOnly 会话，本页面不会保存密码。',
+  'Panel password': '面板密码',
+  'Sign in': '登录',
+  'Close': '关闭',
+  'Registration is sent only to the selected account.': '注册请求只会发送至所选账号。',
+  'Subdomain label': '子域名前缀',
+  'SUBDOMAINS · GET': '子域名 · 详情',
+  'Domain details': '域名详情',
+  'DNS records included by detail endpoint': '详情接口返回的 DNS 记录',
+  'DNS records returned by subdomain detail': '子域名详情返回的 DNS 记录',
+  'Type': '类型',
+  'Name': '名称',
+  'Value': '记录值',
+  'TTL': 'TTL',
+  'DNS RECORDS · LIST / CREATE / UPDATE / DELETE': 'DNS 记录 · 列表 / 创建 / 更新 / 删除',
+  'DNS records': 'DNS 记录',
+  'Full V2 record fields are preserved. Internal ID is preferred for mutations.': '完整保留 V2 记录字段；修改操作优先使用内部 ID。',
+  'Add record': '添加记录',
+  'ID / Provider ID': '内部 ID / 服务商 ID',
+  'Line / Proxy': '解析线路 / 代理',
+  'Status / Updated': '状态 / 更新时间',
+  'DNS record': 'DNS 记录',
+  'Record type': '记录类型',
+  'Resolution line (optional)': '解析线路（可选）',
+  'Only supported zones apply this': '仅支持的域名区域会应用此项',
+  'V2 default: 600 seconds': 'V2 默认值：600 秒',
+  'Save record': '保存记录',
+  'Operation completed': '操作已完成',
+  'Confirm action': '确认操作',
+  'ACCOUNT SCOPE': '账号范围',
+  'Operational scope': '操作账号范围',
+  'These endpoints are account-scoped. Switch account to reload every section.': '这些接口均按账号隔离；切换账号会重新加载所有区块。',
+  'Refresh all': '刷新全部',
+  'Available': '可用额度',
+  'Registrations remaining': '剩余可注册数量',
+  'Used': '已使用',
+  'Consumed capacity': '已消耗额度',
+  'Base': '基础额度',
+  'Base allowance': '基础配额',
+  'Invite bonus': '邀请奖励',
+  'Bonus allowance': '奖励额度',
+  'Total': '总额度',
+  'Overall capacity': '总可用容量',
+  'QUOTA · GET': '配额 · 查询',
+  'Capacity meter': '配额用量',
+  'Awaiting data': '等待数据',
+  'Quota usage': '配额使用情况',
+  'Raw quota response': '原始配额响应',
+  'Loading quota…': '正在加载配额…',
+  'API KEYS · LIST / CREATE / REGENERATE / DELETE': 'API 密钥 · 列表 / 创建 / 重置 / 删除',
+  'API key lifecycle': 'API 密钥生命周期',
+  'Request count and lifecycle fields are shown for auditing. New secrets remain one-time only.': '显示请求次数和生命周期字段以便审计；新 Secret 仍仅显示一次。',
+  'Create API key': '创建 API 密钥',
+  'API keys for selected account': '所选账号的 API 密钥',
+  'Name / Key': '名称 / Key',
+  'Requests': '请求次数',
+  'Last used': '最后使用',
+  'WHOIS · GET · PUBLIC / AUTHENTICATED': 'WHOIS · 查询 · 公共 / 认证',
+  'WHOIS inspector': 'WHOIS 查询器',
+  'Fully qualified domain': '完整域名',
+  'Authentication mode': '认证模式',
+  'Public first, account fallback': '优先公共查询，失败时使用账号',
+  'Always use selected account': '始终使用所选账号',
+  'Lookup': '查询',
+  'Public WHOIS will be attempted first.': '将优先尝试 DNSHE 公共 WHOIS。',
+  'Raw WHOIS response': '原始 WHOIS 响应',
+  'No lookup requested.': '尚未发起查询。',
+  'PERMANENT UPGRADE · ELIGIBLE': '永久升级 · 可升级项',
+  'Eligible subdomains': '可永久升级的子域名',
+  'Subdomains eligible for permanent upgrade': '可永久升级的子域名',
+  'PERMANENT UPGRADE · LIST / CREATE / ASSIST / CANCEL': '永久升级 · 列表 / 创建 / 协助 / 取消',
+  'Permanent upgrade requests': '永久升级请求',
+  'Quota-affecting requests require confirmation. Feature-disabled responses remain visible as structured errors.': '可能影响额度的请求需要确认；功能被禁用时会显示结构化错误。',
+  'Submit assist code': '提交协助码',
+  'Eligible subdomain': '可升级子域名',
+  'Load eligible domains first': '请先加载可升级域名',
+  'Request permanent upgrade': '申请永久升级',
+  'Permanent-upgrade requests': '永久升级请求',
+  'Request': '请求',
+  'PERMANENT UPGRADE · ASSIST LOGS': '永久升级 · 协助日志',
+  'Assist activity': '协助记录',
+  'Permanent-upgrade assist logs': '永久升级协助日志',
+  'Code / Request': '协助码 / 请求',
+  'Account / User': '账号 / 用户',
+  'Key name': '密钥名称',
+  'IP whitelist (optional)': 'IP 白名单（可选）',
+  'Comma, semicolon or newline separated IPv4/CIDR values.': '使用逗号、分号或换行分隔 IPv4/CIDR 地址。',
+  'Store this API secret now': '请立即保存此 API Secret',
+  'This value is available only in this immediate response. It is not retained by the panel.': '该值仅在当前响应中显示，面板不会保存。',
+  'Copy secret': '复制 Secret',
+  'Enter the invitation code shared by a DNSHE user.': '输入 DNSHE 用户分享给你的邀请协助码。',
+  'Assist code': '协助码',
+  'No subdomains match this page and filter set.': '当前页和筛选条件下没有匹配的子域名。',
+  'No DNS records found.': '未找到 DNS 记录。',
+  'No embedded DNS records.': '详情接口未返回 DNS 记录。',
+  'No API keys found.': '未找到 API 密钥。',
+  'No eligible subdomains reported.': '未返回可升级的子域名。',
+  'No permanent-upgrade requests.': '暂无永久升级请求。',
+  'No assist activity.': '暂无协助记录。',
+  'Open to view': '打开查看',
+  'Register': '注册',
+  'Details': '详情',
+  'Renew': '续期',
+  'Delete': '删除',
+  'Edit': '编辑',
+  'Regenerate': '重新生成',
+  'Cancel': '取消',
+  'Select': '选择',
+  'Assist': '协助',
+  'A': 'A', 'AAAA': 'AAAA', 'CNAME': 'CNAME', 'MX': 'MX', 'TXT': 'TXT', 'NS': 'NS', 'SRV': 'SRV', 'CAA': 'CAA',
+  'All configured accounts': '全部已配置账号',
+  'Full domain': '完整域名',
+  'Subdomain': '子域名',
+  'Never expires': '永不过期',
+  'Cloudflare zone': 'Cloudflare Zone',
+  'Provider account': '服务商账号',
+  'IDs': '标识符',
+  'No provider ID': '无服务商 ID',
+  'default': '默认',
+  'proxied': '已代理',
+  'DNS only': '仅 DNS',
+  '{label} is required': '必须填写{label}',
+  'Signing in…': '正在登录…',
+  'Signed in.': '登录成功。',
+  'Loading subdomains…': '正在加载子域名…',
+  'Loading DNS records…': '正在加载 DNS 记录…',
+  'API keys loaded.': 'API 密钥已加载。',
+  'Refresh tools': '刷新工具',
+  'DNSHE Panel · Domains & DNS': 'DNSHE 面板 · 域名与 DNS',
+  'DNSHE Panel · Keys, quota & tools': 'DNSHE 面板 · 密钥、配额与工具',
+  'Complete DNSHE V2 domains and DNS records control plane': '完整的 DNSHE V2 域名与 DNS 记录控制台',
+  'Complete DNSHE V2 keys, quota, WHOIS and permanent upgrade operations': '完整的 DNSHE V2 密钥、配额、WHOIS 与永久升级控制台',
+  'Switch to English': '切换至英文',
+  'Close dialog': '关闭对话框',
+  'Submit registration': '提交注册',
+  'DNS records for the selected subdomain': '所选子域名的 DNS 记录',
+  'Confirm': '确认',
+  'Suspended': '已暂停',
+  'Expired': '已过期',
+  'subdomain or root domain': '子域名或根域名',
+  'Your password creates a signed HttpOnly session and is never saved by this page.': '密码仅用于创建带签名的 HttpOnly 会话，本页面不会保存密码。',
+  'Inventory summary': '清单摘要',
+  'Account load errors': '账号加载错误',
+  'Subdomain list': '子域名列表',
+  'Subdomain pagination': '子域名分页',
+  'DNS records pagination': 'DNS 记录分页',
+  'Permanent upgrade pagination': '永久升级分页',
+  'Quota summary': '配额摘要',
+  'All configured accounts': '全部已配置账号',
+  'Has more: {value}': '是否还有更多：{value}',
+  'yes': '是',
+  'no': '否',
+  'Reported total: {total}': '已报告总数：{total}',
+  'Page {page}': '第 {page} 页',
+  'Loaded {count} domain(s).': '已加载 {count} 个域名。',
+  'Loaded {count} domains; {failed} account(s) returned errors below.': '已加载 {count} 个域名；以下有 {failed} 个账号返回错误。',
+  'Domain details · {domain}': '域名详情 · {domain}',
+  '{count} record(s) reported by the detail endpoint.': '详情接口返回 {count} 条记录。',
+  'Never': '永不过期',
+  'Yes': '是',
+  'No': '否',
+  'Unknown': '未知',
+  'No zone ID': '无 Zone ID',
+  'No provider account ID': '无服务商账号 ID',
+  'No provider ID': '无服务商 ID',
+  'DNSHE service is unavailable': 'DNSHE 服务暂不可用',
+  'Signed in, but the panel could not initialize: {message}': '已登录，但面板无法初始化：{message}',
+  'Unable to check the current session: {message}': '无法检查当前会话：{message}',
+  'Renew subdomain': '续期子域名',
+  'Renew {domain}? DNSHE may charge account balance and returns the exact amount.': '要续期 {domain} 吗？DNSHE 可能会从账号余额扣费，并会返回准确金额。',
+  'Subdomain renewed': '子域名已续期',
+  '{domain} was renewed. Review expiry and charge details.': '{domain} 已续期，请检查到期时间和扣费详情。',
+  'Delete subdomain': '删除子域名',
+  'Delete {domain} permanently? DNSHE will also report how many DNS records were deleted.': '要永久删除 {domain} 吗？DNSHE 还会返回被删除的 DNS 记录数量。',
+  'Subdomain deleted': '子域名已删除',
+  '{domain} was deleted.': '{domain} 已删除。',
+  'Subdomain registered': '子域名已注册',
+  'Registration completed.': '注册已完成。',
+  'DNS records · {domain}': 'DNS 记录 · {domain}',
+  'Delete DNS record': '删除 DNS 记录',
+  'Delete internal record {id} permanently?': '要永久删除内部记录 {id} 吗？',
+  'Delete provider record {id} permanently?': '要永久删除服务商记录 {id} 吗？',
+  'Delete record': '删除记录',
+  'DNS record deleted.': 'DNS 记录已删除。',
+  'DNS record {operation} ({id}).': 'DNS 记录已{operation}（{id}）。',
+  'updated': '更新',
+  'created': '创建',
+  'confirmed': '已确认',
+  'IPv4 address': 'IPv4 地址',
+  'IPv6 address': 'IPv6 地址',
+  'Canonical hostname': '规范主机名',
+  'Mail hostname': '邮件主机名',
+  'Priority': '优先级',
+  'Default 10': '默认 10',
+  'Text value': '文本值',
+  'Nameserver hostname': '名称服务器主机名',
+  'Weight': '权重',
+  'Port': '端口',
+  'Target hostname': '目标主机名',
+  'Default 0': '默认 0',
+  'Flag': '标记',
+  'Tag': '标签',
+  'Default issue': '默认 issue',
+  'Value is required': '必须填写值',
+  'Loaded {count} API key(s).': '已加载 {count} 个 API 密钥。',
+  '{percent}% used': '已使用 {percent}%',
+  'No capacity data': '没有配额数据',
+  'Select an eligible subdomain': '选择可升级子域名',
+  'No eligible subdomains': '没有可升级子域名',
+  'eligible': '可升级',
+  'Subdomain {id}': '子域名 {id}',
+  'Queried with DNSHE public WHOIS mode.': '已通过 DNSHE 公共 WHOIS 模式查询。',
+  'Queried with the selected DNSHE account.': '已通过所选 DNSHE 账号查询。',
+  'WHOIS lookup failed.': 'WHOIS 查询失败。',
+  'Domain': '域名',
+  'Registered': '已注册',
+  'Registered at': '注册时间',
+  'Expires at': '到期时间',
+  'Registrant email': '注册人邮箱',
+  'Nameservers': '名称服务器',
+  'Rate limit': '速率限制',
+  '{remaining}/{limit} remaining; reset {reset}': '剩余 {remaining}/{limit}；重置时间 {reset}',
+  'Not reported': '未返回',
+  'Delete API key': '删除 API 密钥',
+  'Delete API key #{id} permanently?': '要永久删除 API 密钥 #{id} 吗？',
+  'Delete key': '删除密钥',
+  'API key deleted': 'API 密钥已删除',
+  'Key #{id} deleted.': '密钥 #{id} 已删除。',
+  'Regenerate API key': '重新生成 API 密钥',
+  'The existing API secret will stop working. Continue?': '现有 API Secret 将立即失效，是否继续？',
+  'API key regenerated. Store its new secret now.': 'API 密钥已重新生成，请立即保存新的 Secret。',
+  'API key created. Store its secret now.': 'API 密钥已创建，请立即保存 Secret。',
+  'Request permanent upgrade': '申请永久升级',
+  'Request permanent upgrade for subdomain #{id}? This can affect quota and may be irreversible.': '要为子域名 #{id} 申请永久升级吗？这可能影响配额且不可逆。',
+  'Request upgrade': '申请升级',
+  'Permanent upgrade requested': '永久升级已申请',
+  'Upgrade requested for subdomain #{id}.': '已为子域名 #{id} 申请永久升级。',
+  'Cancel permanent upgrade': '取消永久升级',
+  'Cancel permanent-upgrade request #{id}?': '要取消永久升级请求 #{id} 吗？',
+  'Cancel request': '取消请求',
+  'Upgrade request cancelled': '永久升级请求已取消',
+  'Request #{id} cancelled.': '请求 #{id} 已取消。',
+  'Submit assist code': '提交协助码',
+  'Submit this assist code for the selected account?': '要为所选账号提交此协助码吗？',
+  'Submit code': '提交协助码',
+  'Assist code submitted': '协助码已提交',
+  'Assist operation completed.': '协助操作已完成。',
+  'Secret copied.': 'Secret 已复制。',
+  'Copy is unavailable. Select and copy the displayed value.': '无法自动复制，请选择并复制显示的值。',
+  'Action': '操作',
+  'Signed in, but the tools page could not initialize: {message}': '已登录，但工具页面无法初始化：{message}',
+  'English': 'English',
+  '中文': '中文'
+};
+
+function readLanguage() {
+  const match = document.cookie.match(/(?:^|;\s*)dnshe_panel_language=([^;]+)/);
+  return match?.[1] === 'en' ? 'en' : DEFAULT_LANGUAGE;
+}
+
+let language = typeof document === 'undefined' ? DEFAULT_LANGUAGE : readLanguage();
+
+export function getLanguage() { return language; }
+export function t(value, values = {}) {
+  const source = String(value ?? '');
+  let output = language === 'zh-CN' ? (ZH[source] || source) : source;
+  for (const [key, replacement] of Object.entries(values)) output = output.split(`{${key}}`).join(String(replacement));
+  return output;
+}
+
+function translateTextNode(node) {
+  const source = originals.get(node) ?? node.nodeValue;
+  if (!originals.has(node)) originals.set(node, source);
+  const whitespace = /^(\s*)([\s\S]*?)(\s*)$/.exec(source || '');
+  if (!whitespace) return;
+  node.nodeValue = `${whitespace[1]}${t(whitespace[2])}${whitespace[3]}`;
+}
+
+function translateAttributes(element) {
+  for (const attribute of ['placeholder', 'aria-label', 'title', 'aria-description']) {
+    if (!element.hasAttribute(attribute)) continue;
+    const stored = originals.get(element) || {};
+    if (!(attribute in stored)) stored[attribute] = element.getAttribute(attribute);
+    originals.set(element, stored);
+    element.setAttribute(attribute, t(stored[attribute] || ''));
+  }
+}
+
+export function applyTranslations(root = document.body) {
+  if (!root) return;
+  document.documentElement.lang = language;
+  const documentSource = originals.get(document) || {};
+  if (!documentSource.title) documentSource.title = document.title;
+  originals.set(document, documentSource);
+  document.title = t(documentSource.title);
+  const description = document.querySelector('meta[name="description"]');
+  if (description) {
+    const source = originals.get(description) || {};
+    if (!source.content) source.content = description.getAttribute('content') || '';
+    originals.set(description, source);
+    description.setAttribute('content', t(source.content));
+  }
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      return parent && !['SCRIPT', 'STYLE', 'CODE'].includes(parent.tagName) && !parent.closest('[data-i18n-ignore]') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) translateTextNode(node);
+  for (const element of root.querySelectorAll('*')) translateAttributes(element);
+  const toggle = document.querySelector('#language-toggle');
+  if (toggle) {
+    toggle.textContent = language === 'zh-CN' ? 'English' : '中文';
+    toggle.setAttribute('aria-label', language === 'zh-CN' ? t('Switch to English') : '切换至中文');
+  }
+}
+
+export function setLanguage(nextLanguage) {
+  language = nextLanguage === 'en' ? 'en' : DEFAULT_LANGUAGE;
+  if (typeof document !== 'undefined') document.cookie = `${LANGUAGE_COOKIE}=${language === 'en' ? 'en' : 'zh'}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  if (typeof window !== 'undefined') window.location.reload();
+}
+
+export function initializeI18n() {
+  applyTranslations();
+  document.querySelector('#language-toggle')?.addEventListener('click', () => setLanguage(language === 'zh-CN' ? 'en' : 'zh-CN'));
+}

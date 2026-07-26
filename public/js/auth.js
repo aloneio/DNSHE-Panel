@@ -1,6 +1,7 @@
 import { apiFetch, setCsrfToken } from './api.js';
 import { closeDialog, openDialog } from './dialog.js';
 import { showStatus } from './status.js';
+import { t } from './i18n.js';
 
 let session = null;
 
@@ -25,14 +26,14 @@ export function installAuthentication({ dialogId = 'login-dialog', formId = 'log
     event.preventDefault();
     const submit = form.querySelector('[type="submit"]');
     const password = new FormData(form).get('password');
-    showStatus(status, 'Signing in…');
+    showStatus(status, t('Signing in…'));
     try {
       const response = await apiFetch('/api/auth', { method: 'POST', body: JSON.stringify({ password }) });
       session = response.data;
       setCsrfToken(session.csrfToken);
       form.reset();
       closeDialog(dialog);
-      showStatus(status, 'Signed in.', 'success');
+      showStatus(status, t('Signed in.'), 'success');
       await onAuthenticated?.(session);
     } catch (error) { showStatus(status, error.message, 'error'); }
     finally { if (submit) submit.disabled = false; }
