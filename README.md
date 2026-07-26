@@ -1,5 +1,7 @@
 # DNSHE Panel
 
+> Panel version: **1.0.0** · Compatible with **DNSHE API V2.0**
+
 A security-focused, multi-account DNSHE API V2.0 administration panel built with **Cloudflare Pages Functions** and native HTML, CSS, and browser ES modules. There is no frontend framework or generated frontend build output.
 
 ## Capabilities

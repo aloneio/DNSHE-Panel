@@ -1,6 +1,6 @@
 {
   "name": "dnshe-panel",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Secure multi-account DNSHE V2 panel for Cloudflare Pages",
   "type": "module",
