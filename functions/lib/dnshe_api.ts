@@ -38,7 +38,7 @@ export class DNSHESubdomainAPI {
     readonly baseUrl: string,
     readonly apiKey = '',
     readonly apiSecret = '',
-    readonly fetcher: typeof fetch = fetch
+    readonly fetcher: typeof fetch = (input, init) => fetch(input, init)
   ) {}
 
   async request(endpoint: string, action?: string, method = 'GET', data?: Record<string, unknown> | object): Promise<Record<string, any>> {

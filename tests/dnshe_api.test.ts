@@ -14,6 +14,15 @@ describe('DNSHE V2 client', () => {
     expect(String(fetcher.mock.calls[1][0])).toContain('action=get');
     expect(String(fetcher.mock.calls[1][0])).toContain('subdomain_id=9');
   });
+  it('binds the default Worker fetch instead of invoking it as a client method', async () => {
+    const original = globalThis.fetch;
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, quota: { available: 1 } }), { status: 200 }));
+    globalThis.fetch = fetcher;
+    try { await expect(new DNSHESubdomainAPI('https://api.example', 'key', 'secret').getQuota()).resolves.toMatchObject({ quota: { available: 1 } }); }
+    finally { globalThis.fetch = original; }
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it('omits credential headers for the public client', async () => {
     const original = globalThis.fetch;
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, registered: false }), { status: 200 }));
